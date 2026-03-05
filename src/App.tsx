@@ -8,6 +8,7 @@ import {
 } from 'react-router-dom';
 import { useAuth, ProtectedRoute } from './components/auth';
 import { LoginPage, SignupPage } from './pages';
+import { FarcasterProvider } from './context/FarcasterContext';
 
 type Theme = 'light' | 'dark';
 
@@ -160,134 +161,6 @@ const SplashScreen: React.FC = () => {
       >
         Continue to login
       </button>
-    </div>
-  );
-};
-
-type AuthScreenProps = {
-  onLogin: () => void;
-};
-
-const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
-  const navigate = useNavigate();
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!email || !password) return;
-
-    try {
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      if (!response.ok) {
-        // You can surface this error in the UI later if needed
-        console.error('Login API failed', await response.text());
-        return;
-      }
-
-      const data = (await response.json()) as { success?: boolean };
-      if (!data.success) {
-        console.error('Login API responded with failure');
-        return;
-      }
-
-      onLogin();
-      navigate('/routine');
-    } catch (error) {
-      console.error('Error while calling login API', error);
-    }
-  };
-
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-slate-900/80 p-8 shadow-xl ring-1 ring-slate-700">
-        <h2 className="mb-2 text-center text-2xl font-semibold text-slate-50">
-          {mode === 'login' ? 'Welcome back' : 'Create your account'}
-        </h2>
-        <p className="mb-6 text-center text-sm text-slate-400">
-          AI Timetable keeps your routine and time tracking in one place.
-        </p>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="text-left">
-            <label
-              htmlFor="email"
-              className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-300"
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none ring-indigo-500/50 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2"
-              placeholder="you@example.com"
-            />
-          </div>
-          <div className="text-left">
-            <label
-              htmlFor="password"
-              className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-300"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-50 outline-none ring-indigo-500/50 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2"
-              placeholder="••••••••"
-            />
-          </div>
-          <button
-            type="submit"
-            className="flex w-full items-center justify-center rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-600"
-          >
-            {mode === 'login' ? 'Login' : 'Sign up'}
-          </button>
-        </form>
-        <div className="mt-4 text-center text-xs text-slate-400">
-          {mode === 'login' ? (
-            <>
-              New here?{' '}
-              <button
-                type="button"
-                className="font-medium text-indigo-300 hover:text-indigo-200"
-                onClick={() => setMode('signup')}
-              >
-                Create an account
-              </button>
-            </>
-          ) : (
-            <>
-              Already have an account?{' '}
-              <button
-                type="button"
-                className="font-medium text-indigo-300 hover:text-indigo-200"
-                onClick={() => setMode('login')}
-              >
-                Log in
-              </button>
-            </>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          className="mt-4 w-full text-center text-xs text-slate-500 hover:text-slate-300"
-        >
-          Back to splash
-        </button>
-      </div>
     </div>
   );
 };
@@ -850,7 +723,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 };
 
 const App: React.FC = () => {
-  return <AppShell />;
+  return (
+    <FarcasterProvider>
+      <AppShell />
+    </FarcasterProvider>
+  );
 };
 
 export default App;
