@@ -1,2 +1,2 @@
-// Placeholder exports for pages
-export {};
+export * from './LoginPage';
+export * from './SignupPage';

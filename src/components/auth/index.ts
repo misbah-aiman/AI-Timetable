@@ -1,2 +1,2 @@
-// Placeholder exports for auth components
-export {};
+export * from './AuthContext';
+export * from './ProtectedRoute';

@@ -6,6 +6,8 @@ import {
   useLocation,
   useNavigate,
 } from 'react-router-dom';
+import { useAuth, ProtectedRoute } from './components/auth';
+import { LoginPage, SignupPage } from './pages';
 
 type Theme = 'light' | 'dark';
 
@@ -24,17 +26,13 @@ const defaultRoutine: RoutineAnswers = {
 };
 
 const AppShell: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { isAuthenticated, logout } = useAuth();
   const [theme, setTheme] = useState<Theme>('light');
   const [routine, setRoutine] = useState<RoutineAnswers>(defaultRoutine);
   const [todayPlan, setTodayPlan] = useState<string[]>([]);
 
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-  };
-
   const handleLogout = () => {
-    setIsAuthenticated(false);
+    logout();
     setRoutine(defaultRoutine);
     setTodayPlan([]);
   };
@@ -83,40 +81,48 @@ const AppShell: React.FC = () => {
         <Route
           path="/auth"
           element={
+            <Navigate to="/login" replace />
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            isAuthenticated ? <Navigate to="/routine" replace /> : <LoginPage />
+          }
+        />
+        <Route
+          path="/signup"
+          element={
             isAuthenticated ? (
               <Navigate to="/routine" replace />
             ) : (
-              <AuthScreen onLogin={handleLogin} />
+              <SignupPage />
             )
           }
         />
         <Route
           path="/routine"
           element={
-            isAuthenticated ? (
+            <ProtectedRoute>
               <RoutineInputScreen
                 initial={routine}
                 onComplete={handleRoutineComplete}
               />
-            ) : (
-              <Navigate to="/auth" replace />
-            )
+            </ProtectedRoute>
           }
         />
         <Route
           path="/analyze"
           element={
-            isAuthenticated ? (
+            <ProtectedRoute>
               <AnalyzeScreen />
-            ) : (
-              <Navigate to="/auth" replace />
-            )
+            </ProtectedRoute>
           }
         />
         <Route
           path="/dashboard/*"
           element={
-            isAuthenticated ? (
+            <ProtectedRoute>
               <DashboardLayout
                 theme={theme}
                 onToggleTheme={toggleTheme}
@@ -124,9 +130,7 @@ const AppShell: React.FC = () => {
                 routine={routine}
                 onLogout={handleLogout}
               />
-            ) : (
-              <Navigate to="/auth" replace />
-            )
+            </ProtectedRoute>
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />

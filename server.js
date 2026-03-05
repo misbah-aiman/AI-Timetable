@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { MongoClient } = require('mongodb');
+const bcrypt = require('bcryptjs');
 const path = require('path');
 require('dotenv').config();
 
@@ -26,35 +27,128 @@ async function initMongo() {
   console.log('Connected to MongoDB');
 }
 
-app.post('/api/login', async (req, res) => {
+function getUsersCollection() {
+  if (!db) {
+    throw new Error('Database not initialized yet.');
+  }
+  return db.collection('users');
+}
+
+app.post('/api/signup', async (req, res) => {
   try {
-    const { email } = req.body || {};
+    const { email, password, name } = req.body || {};
 
     if (!email || typeof email !== 'string') {
-      return res.status(400).json({ success: false, message: 'Valid email is required.' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Valid email is required.' });
     }
 
-    if (!db) {
-      return res.status(500).json({ success: false, message: 'Database not initialized yet.' });
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long.',
+      });
     }
 
-    const users = db.collection('users');
+    const users = getUsersCollection();
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const existing = await users.findOne({ email: normalizedEmail });
+
+    if (existing) {
+      return res
+        .status(409)
+        .json({ success: false, message: 'Email is already registered.' });
+    }
 
     const now = new Date();
+    const passwordHash = await bcrypt.hash(password, 10);
 
-    await users.updateOne(
-      { email: email.toLowerCase().trim() },
-      {
-        $setOnInsert: { createdAt: now },
-        $set: { lastLoginAt: now },
+    const result = await users.insertOne({
+      email: normalizedEmail,
+      name: name && typeof name === 'string' ? name.trim() : null,
+      passwordHash,
+      createdAt: now,
+      lastLoginAt: now,
+    });
+
+    return res.json({
+      success: true,
+      user: {
+        id: result.insertedId.toString(),
+        email: normalizedEmail,
+        name: name && typeof name === 'string' ? name.trim() : null,
       },
-      { upsert: true }
+    });
+  } catch (error) {
+    console.error('Error in /api/signup:', error);
+    if (error.message === 'Database not initialized yet.') {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+    return res
+      .status(500)
+      .json({ success: false, message: 'Internal server error.' });
+  }
+});
+
+app.post('/api/login', async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+
+    if (!email || typeof email !== 'string') {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Valid email is required.' });
+    }
+
+    if (!password || typeof password !== 'string') {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Password is required.' });
+    }
+
+    const users = getUsersCollection();
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await users.findOne({ email: normalizedEmail });
+    if (!user || !user.passwordHash) {
+      return res
+        .status(401)
+        .json({ success: false, message: 'Invalid email or password.' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      return res
+        .status(401)
+        .json({ success: false, message: 'Invalid email or password.' });
+    }
+
+    const now = new Date();
+    await users.updateOne(
+      { _id: user._id },
+      {
+        $set: { lastLoginAt: now },
+      }
     );
 
-    return res.json({ success: true });
+    return res.json({
+      success: true,
+      user: {
+        id: user._id.toString(),
+        email: user.email,
+        name: user.name || null,
+      },
+    });
   } catch (error) {
     console.error('Error in /api/login:', error);
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    if (error.message === 'Database not initialized yet.') {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+    return res
+      .status(500)
+      .json({ success: false, message: 'Internal server error.' });
   }
 });
 
@@ -74,4 +168,3 @@ initMongo()
     console.error('Failed to initialize MongoDB:', err);
     process.exit(1);
   });
-
