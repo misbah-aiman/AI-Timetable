@@ -45,6 +45,9 @@ export const FarcasterProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           isReady: true, 
           error: error instanceof Error ? error : new Error('Unknown error') 
         });
+      } finally {
+        // Tell Farcaster the app is ready (dismisses splash screen)
+        sdk.actions.ready();
       }
     };
 
