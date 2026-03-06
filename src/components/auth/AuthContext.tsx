@@ -18,6 +18,7 @@ type AuthContextValue = {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name?: string) => Promise<void>;
+  loginWithFarcaster: (fid: number, username?: string, displayName?: string) => void;
   logout: () => void;
 };
 
@@ -113,12 +114,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     persistUser(null);
   }, [persistUser]);
 
+  const loginWithFarcaster = useCallback(
+    (fid: number, username?: string, displayName?: string) => {
+      persistUser({
+        id: String(fid),
+        email: `${username ?? fid}@farcaster.user`,
+        name: displayName ?? username ?? undefined,
+      });
+    },
+    [persistUser]
+  );
+
   const value: AuthContextValue = {
     user,
     isAuthenticated: !!user,
     loading,
     login,
     signup,
+    loginWithFarcaster,
     logout,
   };
 

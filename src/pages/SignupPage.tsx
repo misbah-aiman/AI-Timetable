@@ -36,7 +36,7 @@ export const SignupPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       await signup(email, password, name || undefined);
-      navigate('/routine', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       const message =
         err instanceof Error

@@ -88,14 +88,14 @@ const AppShell: React.FC = () => {
         <Route
           path="/login"
           element={
-            isAuthenticated ? <Navigate to="/routine" replace /> : <LoginPage />
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />
           }
         />
         <Route
           path="/signup"
           element={
             isAuthenticated ? (
-              <Navigate to="/routine" replace />
+              <Navigate to="/dashboard" replace />
             ) : (
               <SignupPage />
             )

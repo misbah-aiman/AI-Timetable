@@ -1,53 +1,131 @@
-import React, { useEffect } from 'react';
-import { useFarcaster } from '../context/FarcasterContext';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useFarcaster } from '../context/FarcasterContext';
+import { useAuth } from '../components/auth';
+import { Button, Input } from '../components/ui';
 
-const Login: React.FC = () => {
-  const { isReady, user } = useFarcaster();
+const LoginPage: React.FC = () => {
+  const { isReady, user: fcUser } = useFarcaster();
+  const { login, loginWithFarcaster } = useAuth();
   const navigate = useNavigate();
 
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // When opened inside Farcaster with user, sign them in and go to home
   useEffect(() => {
-    if (isReady && user) {
-      console.log('Logged in with Farcaster:', user);
-      
-      // Redirect to main app
-      navigate('/routine');
+    if (!isReady || !fcUser) return;
+    loginWithFarcaster(
+      fcUser.fid,
+      fcUser.username,
+      fcUser.displayName
+    );
+    navigate('/dashboard', { replace: true });
+  }, [isReady, fcUser, loginWithFarcaster, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!email || !password) {
+      setError('Please enter email and password.');
+      return;
     }
-  }, [isReady, user, navigate]);
+    setIsSubmitting(true);
+    try {
+      await login(email, password);
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Login failed. Please try again.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (!isReady) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-primary-50">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600" />
-          <p className="mt-4 text-primary-700">Loading Farcaster...</p>
+          <p className="mt-4 text-primary-700">Loading...</p>
         </div>
       </div>
     );
   }
 
-  // If running outside Farcaster, show alternative login
-  if (!user) {
+  // Farcaster user: show brief loading while redirect runs
+  if (fcUser) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-primary-50 px-4">
-        <div className="w-full max-w-md space-y-8 rounded-2xl bg-white p-8 shadow-soft ring-1 ring-primary-200/60">
-          <h2 className="text-center text-3xl font-bold text-primary-900">Welcome to AI Timetable</h2>
-          <p className="text-center text-primary-700">
-            To use this app, please open it inside Farcaster or
-            sign in with your Farcaster account.
-          </p>
+      <div className="flex min-h-screen items-center justify-center bg-primary-50">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600" />
+          <p className="mt-4 text-primary-700">Signing you in...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-primary-50 px-4">
+      <div className="w-full max-w-md space-y-6 rounded-2xl bg-white p-8 shadow-soft ring-1 ring-primary-200/60">
+        <h2 className="text-center text-2xl font-semibold text-primary-900">
+          Sign in
+        </h2>
+        <p className="text-center text-sm text-primary-600">
+          Sign in to your account to continue to AI Timetable.
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            id="login-email"
+            type="email"
+            label="Email"
+            placeholder="you@example.com"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Input
+            id="login-password"
+            type="password"
+            label="Password"
+            placeholder="••••••••"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          {error && (
+            <p className="text-xs font-medium text-rose-600">{error}</p>
+          )}
+          <Button type="submit" fullWidth isLoading={isSubmitting}>
+            Sign in
+          </Button>
+        </form>
+
+        <div className="text-center text-xs text-primary-600">
+          Don&apos;t have an account?{' '}
           <button
-            onClick={() => window.open('https://farcaster.xyz', '_blank')}
-            className="w-full flex justify-center rounded-xl py-3 px-4 text-sm font-medium text-white shadow-md transition bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+            type="button"
+            className="font-medium text-primary-600 hover:text-primary-700 underline underline-offset-2"
+            onClick={() => navigate('/signup')}
           >
-            Open Farcaster
+            Sign up
           </button>
         </div>
-      </div>
-    );
-  }
 
-  return null;
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="w-full text-center text-xs text-primary-600 hover:text-primary-700"
+        >
+          Back to home
+        </button>
+      </div>
+    </div>
+  );
 };
 
-export default Login;
+export default LoginPage;
