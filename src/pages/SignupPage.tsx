@@ -49,12 +49,12 @@ export const SignupPage: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-slate-900/80 p-8 shadow-xl ring-1 ring-slate-700">
-        <h2 className="mb-2 text-center text-2xl font-semibold text-slate-50">
+    <div className="flex min-h-screen items-center justify-center bg-primary-50 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-soft ring-1 ring-primary-200/60">
+        <h2 className="mb-2 text-center text-2xl font-semibold text-primary-900">
           Create your account
         </h2>
-        <p className="mb-6 text-center text-sm text-slate-400">
+        <p className="mb-6 text-center text-sm text-primary-600">
           Set up your AI timetable profile in a minute.
         </p>
 
@@ -99,7 +99,7 @@ export const SignupPage: React.FC = () => {
             onChange={(e) => setConfirmPassword(e.target.value)}
           />
           {error && (
-            <p className="text-xs font-medium text-rose-400">{error}</p>
+            <p className="text-xs font-medium text-rose-600">{error}</p>
           )}
           <Button
             type="submit"
@@ -110,11 +110,11 @@ export const SignupPage: React.FC = () => {
           </Button>
         </form>
 
-        <div className="mt-4 text-center text-xs text-slate-400">
+        <div className="mt-4 text-center text-xs text-primary-600">
           Already have an account?{' '}
           <button
             type="button"
-            className="font-medium text-indigo-300 hover:text-indigo-200"
+            className="font-medium text-primary-600 hover:text-primary-700 underline underline-offset-2"
             onClick={() => navigate('/login')}
           >
             Log in
@@ -124,7 +124,7 @@ export const SignupPage: React.FC = () => {
         <button
           type="button"
           onClick={() => navigate('/')}
-          className="mt-4 w-full text-center text-xs text-slate-500 hover:text-slate-300"
+          className="mt-4 w-full text-center text-xs text-primary-600 hover:text-primary-700"
         >
           Back to splash
         </button>

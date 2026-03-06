@@ -26,15 +26,15 @@ export const Input: React.FC<InputProps> = ({
       {label && (
         <label
           htmlFor={id}
-          className="text-xs font-medium text-slate-500"
+          className="text-xs font-medium text-primary-700"
         >
           {label}
         </label>
       )}
       <input
         id={id}
-        className={`w-full rounded-xl border bg-white/80 px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-primary-500 focus:bg-white focus:ring-2 focus:ring-primary-200 placeholder:text-slate-400 ${
-          error ? 'border-rose-400 focus:ring-rose-200' : 'border-slate-200'
+        className={`w-full rounded-xl border bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 shadow-sm outline-none transition focus:border-primary-500 focus:bg-white focus:ring-2 focus:ring-primary-200 placeholder:text-primary-400 ${
+          error ? 'border-rose-400 focus:ring-rose-200' : 'border-primary-200'
         } ${className}`}
         aria-invalid={!!error}
         aria-describedby={describedByIds.join(' ') || undefined}
@@ -43,7 +43,7 @@ export const Input: React.FC<InputProps> = ({
       {helperText && !error && (
         <p
           id={id ? `${id}-helper` : undefined}
-          className="text-[11px] text-slate-400"
+          className="text-[11px] text-primary-600"
         >
           {helperText}
         </p>

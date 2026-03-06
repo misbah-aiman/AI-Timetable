@@ -61,7 +61,7 @@ const AppShell: React.FC = () => {
   const appClasses = useMemo(
     () =>
       theme === 'light'
-        ? 'min-h-screen bg-slate-50 text-slate-900'
+        ? 'min-h-screen bg-primary-50 text-primary-900'
         : 'min-h-screen bg-slate-900 text-slate-50',
     [theme]
   );
@@ -144,20 +144,20 @@ const SplashScreen: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-600 via-sky-500 to-emerald-400 px-4 text-center text-slate-50">
-      <div className="mb-10 flex h-20 w-20 items-center justify-center rounded-3xl bg-white/10 shadow-xl ring-2 ring-white/40">
-        <span className="text-3xl font-semibold tracking-tight">AI</span>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary-100 via-primary-50 to-primary-200/80 px-4 text-center">
+      <div className="mb-10 flex h-20 w-20 items-center justify-center rounded-3xl bg-white shadow-soft ring-2 ring-primary-200/80">
+        <span className="text-3xl font-semibold tracking-tight text-primary-600">AI</span>
       </div>
-      <h1 className="mb-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+      <h1 className="mb-3 text-3xl font-semibold tracking-tight text-primary-900 sm:text-4xl">
         AI Timetable
       </h1>
-      <p className="mb-10 max-w-md text-sm text-slate-100/90 sm:text-base">
+      <p className="mb-10 max-w-md text-sm text-primary-700/90 sm:text-base">
         Build a smarter daily routine with AI-powered planning and gentle
         tracking of your time, sleep and screen habits.
       </p>
       <button
         onClick={() => navigate('/auth')}
-        className="rounded-full bg-white px-8 py-3 text-sm font-medium text-indigo-700 shadow-lg shadow-slate-900/20 transition hover:-translate-y-0.5 hover:bg-slate-50"
+        className="rounded-full bg-primary-600 px-8 py-3 text-sm font-medium text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
       >
         Continue to login
       </button>
@@ -232,34 +232,34 @@ const RoutineInputScreen: React.FC<RoutineInputScreenProps> = ({
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 text-slate-50">
-      <div className="w-full max-w-lg rounded-2xl bg-slate-900/80 p-8 shadow-xl ring-1 ring-slate-800">
-        <p className="mb-1 text-xs font-medium uppercase tracking-[0.2em] text-indigo-300">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-primary-50 px-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-soft ring-1 ring-primary-200/60">
+        <p className="mb-1 text-xs font-medium uppercase tracking-[0.2em] text-primary-600">
           Routine Setup
         </p>
-        <h2 className="mb-6 text-2xl font-semibold">
+        <h2 className="mb-6 text-2xl font-semibold text-primary-900">
           Question {step + 1} of {questions.length}
         </h2>
         <div className="mb-6">
-          <p className="mb-3 text-base font-medium">{current.label}</p>
+          <p className="mb-3 text-base font-medium text-primary-900">{current.label}</p>
           {current.helper && (
-            <p className="mb-3 text-sm text-slate-400">{current.helper}</p>
+            <p className="mb-3 text-sm text-primary-600/80">{current.helper}</p>
           )}
           <input
             type="text"
             value={answers[current.id]}
             onChange={(e) => handleChange(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none ring-indigo-500/50 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2"
+            className="mt-1 w-full rounded-lg border border-primary-200 bg-primary-50/50 px-3 py-2 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
             placeholder={current.placeholder}
           />
         </div>
-        <div className="mb-4 flex items-center justify-between text-xs text-slate-400">
+        <div className="mb-4 flex items-center justify-between text-xs text-primary-600">
           <span>
             Progress {step + 1}/{questions.length}
           </span>
-          <div className="h-1 w-32 overflow-hidden rounded-full bg-slate-800">
+          <div className="h-1 w-32 overflow-hidden rounded-full bg-primary-200">
             <div
-              className="h-full bg-indigo-500 transition-all"
+              className="h-full bg-primary-500 transition-all"
               style={{
                 width: `${((step + 1) / questions.length) * 100}%`,
               }}
@@ -270,14 +270,14 @@ const RoutineInputScreen: React.FC<RoutineInputScreenProps> = ({
           <button
             type="button"
             onClick={handleBack}
-            className="flex-1 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800"
+            className="flex-1 rounded-lg border border-primary-300 px-4 py-2 text-sm font-medium text-primary-800 hover:bg-primary-100"
           >
             {step === 0 ? 'Back to login' : 'Back'}
           </button>
           <button
             type="button"
             onClick={handleNext}
-            className="flex-1 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600"
+            className="flex-1 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
           >
             {step === questions.length - 1 ? 'Finish & analyze' : 'Next'}
           </button>
@@ -307,18 +307,18 @@ const AnalyzeScreen: React.FC = () => {
   }, [navigate]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 text-center text-slate-50">
-      <h2 className="mb-2 text-2xl font-semibold">Analyzing your routine</h2>
-      <p className="mb-6 text-sm text-slate-400">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-primary-50 px-4 text-center">
+      <h2 className="mb-2 text-2xl font-semibold text-primary-900">Analyzing your routine</h2>
+      <p className="mb-6 text-sm text-primary-600">
         We are creating a balanced plan for today based on your answers.
       </p>
-      <div className="mb-3 h-2 w-64 overflow-hidden rounded-full bg-slate-800">
+      <div className="mb-3 h-2 w-64 overflow-hidden rounded-full bg-primary-200">
         <div
-          className="h-full bg-indigo-500 transition-all"
+          className="h-full bg-primary-500 transition-all"
           style={{ width: `${progress}%` }}
         />
       </div>
-      <p className="text-xs uppercase tracking-[0.25em] text-slate-400">
+      <p className="text-xs uppercase tracking-[0.25em] text-primary-600">
         Analyzing...
       </p>
     </div>
@@ -358,23 +358,24 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     { path: '/dashboard/settings', label: 'Settings' },
   ];
 
+  const isLight = theme === 'light';
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-50">
-      <header className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+    <div className={`flex min-h-screen flex-col ${isLight ? 'bg-primary-50 text-primary-900' : 'bg-slate-950 text-slate-50'}`}>
+      <header className={`flex items-center justify-between border-b px-6 py-4 ${isLight ? 'border-primary-200 bg-white/80' : 'border-slate-800'}`}>
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+          <p className={`text-xs uppercase tracking-[0.2em] ${isLight ? 'text-primary-600' : 'text-slate-400'}`}>
             Home
           </p>
-          <h1 className="text-lg font-semibold">Good day 👋</h1>
+          <h1 className={`text-lg font-semibold ${isLight ? 'text-primary-900' : ''}`}>Good day 👋</h1>
         </div>
         <div className="flex items-center gap-3">
-          <span className="hidden text-xs text-slate-400 sm:inline">
+          <span className={`hidden text-xs sm:inline ${isLight ? 'text-primary-600' : 'text-slate-400'}`}>
             {today}
           </span>
           <button
             type="button"
             onClick={onToggleTheme}
-            className="rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800"
+            className={`rounded-full border px-3 py-1 text-xs transition ${isLight ? 'border-primary-300 text-primary-800 hover:bg-primary-100' : 'border-slate-700 text-slate-200 hover:bg-slate-800'}`}
           >
             {theme === 'light' ? 'Dark mode' : 'Light mode'}
           </button>
@@ -384,7 +385,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               onLogout();
               navigate('/');
             }}
-            className="rounded-full border border-rose-500/60 px-3 py-1 text-xs text-rose-300 hover:bg-rose-500/10"
+            className={`rounded-full border border-rose-500/60 px-3 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-rose-300 ${isLight ? 'text-rose-600 hover:bg-rose-50' : 'text-rose-300 hover:bg-rose-500/10'}`}
           >
             Logout
           </button>
@@ -392,7 +393,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       </header>
 
       <main className="flex flex-1 flex-col md:flex-row">
-        <nav className="border-b border-slate-800 bg-slate-950/90 px-4 py-3 text-sm md:w-52 md:border-b-0 md:border-r">
+        <nav className={`border-b px-4 py-3 text-sm md:w-52 md:border-b-0 md:border-r ${isLight ? 'border-primary-200 bg-white/60' : 'border-slate-800 bg-slate-950/90'}`}>
           <ul className="flex gap-2 overflow-x-auto md:flex-col md:gap-1">
             {menuItems.map((item) => {
               const active = location.pathname === item.path;
@@ -403,8 +404,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                     onClick={() => navigate(item.path)}
                     className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-medium transition ${
                       active
-                        ? 'bg-indigo-500 text-white'
-                        : 'bg-slate-900 text-slate-200 hover:bg-slate-800'
+                        ? 'bg-primary-600 text-white'
+                        : isLight
+                          ? 'bg-primary-100 text-primary-800 hover:bg-primary-200'
+                          : 'bg-slate-900 text-slate-200 hover:bg-slate-800'
                     }`}
                   >
                     {item.label}
@@ -455,22 +458,22 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 }) => {
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl bg-gradient-to-r from-indigo-600 to-sky-500 p-5 text-slate-50 shadow-lg">
-        <p className="text-xs uppercase tracking-[0.2em] text-indigo-100/90">
+      <section className="rounded-2xl bg-gradient-to-r from-primary-500 to-primary-600 p-5 text-white shadow-soft">
+        <p className="text-xs uppercase tracking-[0.2em] text-primary-100">
           Today
         </p>
         <h2 className="mt-1 text-xl font-semibold">Hi, here&apos;s your plan</h2>
-        <p className="mt-1 text-xs text-indigo-100/90">{today}</p>
+        <p className="mt-1 text-xs text-primary-100">{today}</p>
         <ul className="mt-3 space-y-1 text-sm">
           {todayPlan.length === 0 ? (
-            <li className="text-indigo-100/90">
+            <li className="text-primary-100">
               No plan yet. Go to Settings to adjust your routine or re-run the
               setup.
             </li>
           ) : (
             todayPlan.map((item) => (
               <li key={item} className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-indigo-100" />
+                <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
                 <span>{item}</span>
               </li>
             ))
@@ -479,27 +482,27 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-sm">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
+        <div className="rounded-xl border border-primary-200 bg-white p-4 text-sm shadow-sm">
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-[0.15em] text-primary-600">
             Wake time
           </h3>
-          <p className="text-lg font-medium">
+          <p className="text-lg font-medium text-primary-900">
             {routine.wakeTime || 'Not set'}
           </p>
         </div>
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-sm">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
+        <div className="rounded-xl border border-primary-200 bg-white p-4 text-sm shadow-sm">
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-[0.15em] text-primary-600">
             Sleep time
           </h3>
-          <p className="text-lg font-medium">
+          <p className="text-lg font-medium text-primary-900">
             {routine.sleepTime || 'Not set'}
           </p>
         </div>
-        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-sm">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
+        <div className="rounded-xl border border-primary-200 bg-white p-4 text-sm shadow-sm">
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-[0.15em] text-primary-600">
             Study goal
           </h3>
-          <p className="text-lg font-medium">
+          <p className="text-lg font-medium text-primary-900">
             {routine.studyHours ? `${routine.studyHours} hrs` : 'Not set'}
           </p>
         </div>
@@ -539,8 +542,8 @@ const TimeTrackerScreen: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Time tracker</h2>
-      <p className="text-sm text-slate-400">
+      <h2 className="text-lg font-semibold text-primary-900">Time tracker</h2>
+      <p className="text-sm text-primary-600">
         Track your focused study, scrolling and sleep sessions.
       </p>
 
@@ -550,10 +553,10 @@ const TimeTrackerScreen: React.FC = () => {
             key={value}
             type="button"
             onClick={() => setMode(value)}
-            className={`rounded-full px-4 py-1.5 text-xs font-medium capitalize ${
+            className={`rounded-full px-4 py-1.5 text-xs font-medium capitalize transition ${
               mode === value
-                ? 'bg-indigo-500 text-white'
-                : 'bg-slate-900 text-slate-200 hover:bg-slate-800'
+                ? 'bg-primary-600 text-white'
+                : 'bg-primary-100 text-primary-800 hover:bg-primary-200'
             }`}
           >
             {value}
@@ -561,14 +564,14 @@ const TimeTrackerScreen: React.FC = () => {
         ))}
       </div>
 
-      <div className="flex flex-col items-center rounded-2xl border border-slate-800 bg-slate-900/80 p-6 text-center">
-        <p className="mb-1 text-xs uppercase tracking-[0.2em] text-slate-400">
+      <div className="flex flex-col items-center rounded-2xl border border-primary-200 bg-white p-6 text-center shadow-sm">
+        <p className="mb-1 text-xs uppercase tracking-[0.2em] text-primary-600">
           Current session
         </p>
-        <p className="mb-3 text-sm font-medium capitalize text-slate-100">
+        <p className="mb-3 text-sm font-medium capitalize text-primary-900">
           {mode}
         </p>
-        <p className="mb-6 text-4xl font-mono tabular-nums text-slate-50">
+        <p className="mb-6 text-4xl font-mono tabular-nums text-primary-900">
           {formatTime(seconds)}
         </p>
         <div className="flex gap-3">
@@ -586,7 +589,7 @@ const TimeTrackerScreen: React.FC = () => {
           <button
             type="button"
             onClick={reset}
-            className="rounded-full border border-slate-700 px-4 py-2 text-xs font-medium text-slate-200 hover:bg-slate-800"
+            className="rounded-full border border-primary-300 px-4 py-2 text-xs font-medium text-primary-800 hover:bg-primary-100"
           >
             Stop & reset
           </button>
@@ -607,13 +610,13 @@ const WeeklyReportScreen: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Weekly report</h2>
-      <p className="text-sm text-slate-400">
+      <h2 className="text-lg font-semibold text-primary-900">Weekly report</h2>
+      <p className="text-sm text-primary-600">
         A simple overview of total study time, average sleep and scrolling
         hours.
       </p>
 
-      <div className="mt-2 flex h-64 items-end justify-around rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
+      <div className="mt-2 flex h-64 items-end justify-around rounded-2xl border border-primary-200 bg-white p-4 shadow-sm">
         {data.map((item) => (
           <div
             key={item.label}
@@ -628,10 +631,10 @@ const WeeklyReportScreen: React.FC = () => {
               />
             </div>
             <div className="text-center">
-              <p className="text-xs font-semibold text-slate-100">
+              <p className="text-xs font-semibold text-primary-900">
                 {item.value}h
               </p>
-              <p className="mt-0.5 max-w-[6rem] text-[10px] text-slate-400">
+              <p className="mt-0.5 max-w-[6rem] text-[10px] text-primary-600">
                 {item.label}
               </p>
             </div>
@@ -659,14 +662,14 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold">Settings</h2>
+      <h2 className="text-lg font-semibold text-primary-900">Settings</h2>
 
-      <section className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
-        <h3 className="text-sm font-medium text-slate-100">Routine summary</h3>
-        <p className="text-xs text-slate-400">
+      <section className="space-y-3 rounded-2xl border border-primary-200 bg-white p-4 shadow-sm">
+        <h3 className="text-sm font-medium text-primary-900">Routine summary</h3>
+        <p className="text-xs text-primary-600">
           Quickly review or update your current routine.
         </p>
-        <ul className="mt-2 space-y-1 text-sm text-slate-200">
+        <ul className="mt-2 space-y-1 text-sm text-primary-800">
           <li>Wake: {routine.wakeTime || 'Not set'}</li>
           <li>Sleep: {routine.sleepTime || 'Not set'}</li>
           <li>
@@ -680,9 +683,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </ul>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
-        <h3 className="text-sm font-medium text-slate-100">Change goals</h3>
-        <p className="text-xs text-slate-400">
+      <section className="space-y-3 rounded-2xl border border-primary-200 bg-white p-4 shadow-sm">
+        <h3 className="text-sm font-medium text-primary-900">Change goals</h3>
+        <p className="text-xs text-primary-600">
           Describe what you want this week. You can later wire this into real
           AI planning.
         </p>
@@ -690,28 +693,28 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
           value={goals}
           onChange={(e) => setGoals(e.target.value)}
           rows={3}
-          className="mt-1 w-full resize-none rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none ring-indigo-500/50 placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2"
+          className="mt-1 w-full resize-none rounded-lg border border-primary-200 bg-primary-50/50 px-3 py-2 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
         />
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
-        <h3 className="text-sm font-medium text-slate-100">Appearance</h3>
+      <section className="space-y-3 rounded-2xl border border-primary-200 bg-white p-4 shadow-sm">
+        <h3 className="text-sm font-medium text-primary-900">Appearance</h3>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-slate-100">Dark mode</p>
-            <p className="text-xs text-slate-400">
+            <p className="text-sm text-primary-900">Dark mode</p>
+            <p className="text-xs text-primary-600">
               Switch between light and dark themes.
             </p>
           </div>
           <button
             type="button"
             onClick={onToggleTheme}
-            className={`flex h-7 w-12 items-center rounded-full border border-slate-700 px-1 transition ${
-              theme === 'dark' ? 'bg-indigo-500' : 'bg-slate-800'
+            className={`flex h-7 w-12 items-center rounded-full border border-primary-300 px-1 transition ${
+              theme === 'dark' ? 'bg-primary-600' : 'bg-primary-200'
             }`}
           >
             <span
-              className={`h-5 w-5 rounded-full bg-white transition ${
+              className={`h-5 w-5 rounded-full bg-white shadow-sm transition ${
                 theme === 'dark' ? 'translate-x-5' : ''
               }`}
             />
