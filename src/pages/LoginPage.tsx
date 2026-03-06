@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useFarcaster } from '../context/FarcasterContext';
 import { useAuth } from '../components/auth';
 import { Button, Input } from '../components/ui';
@@ -8,6 +8,7 @@ const LoginPage: React.FC = () => {
   const { isReady, user: fcUser } = useFarcaster();
   const { login, loginWithFarcaster } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,7 +37,13 @@ const LoginPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       await login(email, password);
-      navigate('/dashboard', { replace: true });
+      // If we were sent here from /routine (e.g. auth wasn't ready right after signup), go back to routine onboarding
+      const fromPath = (location.state as { from?: { pathname?: string } })?.from?.pathname;
+      if (fromPath === '/routine') {
+        navigate('/routine', { replace: true, state: { fromSignup: true } });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Login failed. Please try again.'

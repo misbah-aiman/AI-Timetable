@@ -36,7 +36,12 @@ export const SignupPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       await signup(email, password, name || undefined);
-      navigate('/routine', { replace: true, state: { fromSignup: true } });
+      // Mark that we need routine onboarding (survives redirect if auth state isn't ready yet)
+      sessionStorage.setItem('signup:needsRoutine', '1');
+      // Defer navigation so auth state can update before ProtectedRoute runs
+      setTimeout(() => {
+        navigate('/routine', { replace: true, state: { fromSignup: true } });
+      }, 0);
     } catch (err) {
       const message =
         err instanceof Error

@@ -29,3 +29,30 @@ export async function saveRoutine(
     throw new Error(message);
   }
 }
+
+export async function getRoutine(userId: string): Promise<RoutinePayload | null> {
+  const base = getApiBaseUrl();
+  try {
+    const response = await fetch(`${base}/api/routine/${userId}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await response.json().catch(() => ({}));
+    
+    if (response.status === 404) {
+      return null;
+    }
+    
+    if (!response.ok || !data?.success) {
+      const message = data?.message ?? 'Failed to fetch your routine.';
+      throw new Error(message);
+    }
+    
+    return data.routine as RoutinePayload;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('fetch')) {
+      throw new Error('Could not reach the server. Please check your connection.');
+    }
+    throw error;
+  }
+}

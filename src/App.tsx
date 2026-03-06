@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Navigate,
   Route,
@@ -9,7 +9,7 @@ import {
 import { useAuth, ProtectedRoute } from './components/auth';
 import { LoginPage, SignupPage } from './pages';
 import { FarcasterProvider } from './context/FarcasterContext';
-import { saveRoutine, AIService, type GeneratedWeeklyPlan, type GenerateWeeklyPlanInput, type AIProvider } from './services';
+import { saveRoutine, getRoutine, AIService, type GeneratedWeeklyPlan, type GenerateWeeklyPlanInput, type AIProvider } from './services';
 import type { Course, UserPreferences, Reminder } from './types';
 import { Card, Button } from './components/ui';
 
@@ -281,8 +281,9 @@ const RoutineInputScreen: React.FC<RoutineInputScreenProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Routine setup is only for new users after signup; redirect if accessed without that flow
-  if (location.state?.fromSignup !== true) {
+  // Routine setup is only for new users after signup; allow sessionStorage fallback if state was lost
+  const fromSignup = location.state?.fromSignup === true || sessionStorage.getItem('signup:needsRoutine') === '1';
+  if (!fromSignup) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -305,6 +306,7 @@ const RoutineInputScreen: React.FC<RoutineInputScreenProps> = ({
         scrollHours: answers.scrollHours,
       });
       onComplete(answers);
+      sessionStorage.removeItem('signup:needsRoutine');
       navigate('/analyze', { replace: true });
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to save routine.');
@@ -333,39 +335,18 @@ const RoutineInputScreen: React.FC<RoutineInputScreenProps> = ({
           Step {step + 1} of {TOTAL_STEPS}
         </h2>
 
-        {/* Step 0: Study hours */}
+        {/* Step 0: Sleep */}
         {step === 0 && (
-          <div className="mb-6">
-            <p className="mb-3 text-base font-medium text-primary-900">
-              How many hours do you want to study per day?
-            </p>
-            <p className="mb-3 text-sm text-primary-600/80">
-              A rough estimate is enough.
-            </p>
-            <input
-              type="number"
-              min="0"
-              max="24"
-              step="0.5"
-              value={answers.studyHours}
-              onChange={(e) =>
-                setAnswers((prev) => ({ ...prev, studyHours: e.target.value }))
-              }
-              placeholder="e.g. 4"
-              className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            />
-          </div>
-        )}
-
-        {/* Step 1: Sleep time */}
-        {step === 1 && (
           <div className="mb-6 space-y-4">
             <p className="text-base font-medium text-primary-900">
               When do you usually sleep and wake up?
             </p>
+            <p className="text-sm text-primary-600/80">
+              We&apos;ll use this to plan study blocks around your rest.
+            </p>
             <div>
               <label className="mb-1 block text-xs font-medium text-primary-700">
-                Sleep time
+                Bedtime
               </label>
               <input
                 type="time"
@@ -391,7 +372,7 @@ const RoutineInputScreen: React.FC<RoutineInputScreenProps> = ({
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-primary-700">
-                Sleep hours (total)
+                How many hours of sleep do you aim for?
               </label>
               <input
                 type="number"
@@ -409,8 +390,56 @@ const RoutineInputScreen: React.FC<RoutineInputScreenProps> = ({
           </div>
         )}
 
-        {/* Step 2: Classes schedule (image) */}
+        {/* Step 1: Study hours */}
+        {step === 1 && (
+          <div className="mb-6">
+            <p className="mb-3 text-base font-medium text-primary-900">
+              How many hours do you want to study per day?
+            </p>
+            <p className="mb-3 text-sm text-primary-600/80">
+              A rough estimate is enough.
+            </p>
+            <input
+              type="number"
+              min="0"
+              max="24"
+              step="0.5"
+              value={answers.studyHours}
+              onChange={(e) =>
+                setAnswers((prev) => ({ ...prev, studyHours: e.target.value }))
+              }
+              placeholder="e.g. 4"
+              className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+            />
+          </div>
+        )}
+
+        {/* Step 2: Scroll time */}
         {step === 2 && (
+          <div className="mb-6">
+            <p className="mb-3 text-base font-medium text-primary-900">
+              How many hours do you want to limit scrolling to?
+            </p>
+            <p className="mb-3 text-sm text-primary-600/80">
+              Social media, random browsing, etc.
+            </p>
+            <input
+              type="number"
+              min="0"
+              max="24"
+              step="0.5"
+              value={answers.scrollHours}
+              onChange={(e) =>
+                setAnswers((prev) => ({ ...prev, scrollHours: e.target.value }))
+              }
+              placeholder="e.g. 1.5"
+              className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+            />
+          </div>
+        )}
+
+        {/* Step 3: Classes schedule (image) */}
+        {step === 3 && (
           <div className="mb-6">
             <p className="mb-3 text-base font-medium text-primary-900">
               Share your classes schedule
@@ -456,8 +485,8 @@ const RoutineInputScreen: React.FC<RoutineInputScreenProps> = ({
           </div>
         )}
 
-        {/* Step 3: Hobbies time (optional) */}
-        {step === 3 && (
+        {/* Step 4: Hobbies time (optional) */}
+        {step === 4 && (
           <div className="mb-6">
             <p className="mb-3 text-base font-medium text-primary-900">
               Hobbies time (if any)
@@ -472,30 +501,6 @@ const RoutineInputScreen: React.FC<RoutineInputScreenProps> = ({
                 setAnswers((prev) => ({ ...prev, hobbiesTime: e.target.value }))
               }
               placeholder="e.g. 1 hour for reading"
-              className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            />
-          </div>
-        )}
-
-        {/* Step 4: Scroll time */}
-        {step === 4 && (
-          <div className="mb-6">
-            <p className="mb-3 text-base font-medium text-primary-900">
-              How many hours do you want to limit scrolling to?
-            </p>
-            <p className="mb-3 text-sm text-primary-600/80">
-              Social media, random browsing, etc.
-            </p>
-            <input
-              type="number"
-              min="0"
-              max="24"
-              step="0.5"
-              value={answers.scrollHours}
-              onChange={(e) =>
-                setAnswers((prev) => ({ ...prev, scrollHours: e.target.value }))
-              }
-              placeholder="e.g. 1.5"
               className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
             />
           </div>

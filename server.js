@@ -8,7 +8,7 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI;
-const DB_NAME = process.env.MONGODB_DB_NAME || 'ai_timetable';
+const DB_NAME = process.env.MONGODB_DB_NAME || 'AI_timetable';
 
 if (!MONGODB_URI) {
   console.error('MONGODB_URI is not set in environment variables.');
@@ -150,6 +150,48 @@ app.post('/api/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Error in /api/login:', error);
+    if (error.message === 'Database not initialized yet.') {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+    return res
+      .status(500)
+      .json({ success: false, message: 'Internal server error.' });
+  }
+});
+
+app.get('/api/routine/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId || typeof userId !== 'string') {
+      return res
+        .status(400)
+        .json({ success: false, message: 'User ID is required.' });
+    }
+
+    const routines = getRoutinesCollection();
+    const routine = await routines.findOne({ userId });
+
+    if (!routine) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Routine not found.' });
+    }
+
+    return res.json({
+      success: true,
+      routine: {
+        studyHours: routine.studyHours ?? '',
+        sleepTime: routine.sleepTime ?? '',
+        wakeTime: routine.wakeTime ?? '',
+        sleepHours: routine.sleepHours ?? '',
+        classesScheduleImage: routine.classesScheduleImage ?? null,
+        hobbiesTime: routine.hobbiesTime ?? '',
+        scrollHours: routine.scrollHours ?? '',
+      },
+    });
+  } catch (error) {
+    console.error('Error in GET /api/routine/:userId:', error);
     if (error.message === 'Database not initialized yet.') {
       return res.status(500).json({ success: false, message: error.message });
     }
