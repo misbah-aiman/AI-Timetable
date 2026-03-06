@@ -9,20 +9,27 @@ import {
 import { useAuth, ProtectedRoute } from './components/auth';
 import { LoginPage, SignupPage } from './pages';
 import { FarcasterProvider } from './context/FarcasterContext';
+import { saveRoutine } from './services';
 
 type Theme = 'light' | 'dark';
 
 type RoutineAnswers = {
-  wakeTime: string;
-  sleepTime: string;
   studyHours: string;
+  sleepTime: string;
+  wakeTime: string;
+  sleepHours: string;
+  classesScheduleImage: string | null; // data URL or null
+  hobbiesTime: string;
   scrollHours: string;
 };
 
 const defaultRoutine: RoutineAnswers = {
-  wakeTime: '',
-  sleepTime: '',
   studyHours: '',
+  sleepTime: '',
+  wakeTime: '',
+  sleepHours: '',
+  classesScheduleImage: null,
+  hobbiesTime: '',
   scrollHours: '',
 };
 
@@ -40,7 +47,6 @@ const AppShell: React.FC = () => {
 
   const handleRoutineComplete = (answers: RoutineAnswers) => {
     setRoutine(answers);
-    // Very simple "plan" derived from routine
     const plan: string[] = [];
     if (answers.studyHours) {
       plan.push(`Study for ${answers.studyHours} hours`);
@@ -50,6 +56,12 @@ const AppShell: React.FC = () => {
     }
     if (answers.wakeTime && answers.sleepTime) {
       plan.push(`Sleep from ${answers.sleepTime} to ${answers.wakeTime}`);
+    }
+    if (answers.sleepHours) {
+      plan.push(`${answers.sleepHours} hours of sleep`);
+    }
+    if (answers.hobbiesTime) {
+      plan.push(`Hobbies: ${answers.hobbiesTime}`);
     }
     setTodayPlan(plan);
   };
@@ -165,6 +177,8 @@ const SplashScreen: React.FC = () => {
   );
 };
 
+const TOTAL_STEPS = 5;
+
 type RoutineInputScreenProps = {
   initial: RoutineAnswers;
   onComplete: (answers: RoutineAnswers) => void;
@@ -175,61 +189,54 @@ const RoutineInputScreen: React.FC<RoutineInputScreenProps> = ({
   onComplete,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<RoutineAnswers>(initial);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const questions: {
-    id: keyof RoutineAnswers;
-    label: string;
-    placeholder: string;
-    helper?: string;
-  }[] = [
-    {
-      id: 'wakeTime',
-      label: 'What time do you usually wake up?',
-      placeholder: 'e.g. 7:00 AM',
-    },
-    {
-      id: 'sleepTime',
-      label: 'What time do you usually go to sleep?',
-      placeholder: 'e.g. 11:30 PM',
-    },
-    {
-      id: 'studyHours',
-      label: 'How many hours do you want to study today?',
-      placeholder: 'e.g. 4',
-      helper: 'A rough estimate is enough.',
-    },
-    {
-      id: 'scrollHours',
-      label: 'Maximum hours you want to spend scrolling?',
-      placeholder: 'e.g. 1.5',
-      helper: 'Social media, random browsing, etc.',
-    },
-  ];
+  // Routine setup is only for new users after signup; redirect if accessed without that flow
+  if (location.state?.fromSignup !== true) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
-  const current = questions[step];
-
-  const handleChange = (value: string) => {
-    setAnswers((prev) => ({ ...prev, [current.id]: value }));
-  };
-
-  const handleNext = () => {
-    if (step < questions.length - 1) {
+  const handleNext = async () => {
+    if (step < TOTAL_STEPS - 1) {
       setStep((prev) => prev + 1);
-    } else {
+      setSaveError(null);
+      return;
+    }
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      await saveRoutine(user!.id, {
+        studyHours: answers.studyHours,
+        sleepTime: answers.sleepTime,
+        wakeTime: answers.wakeTime,
+        sleepHours: answers.sleepHours,
+        classesScheduleImage: answers.classesScheduleImage,
+        hobbiesTime: answers.hobbiesTime,
+        scrollHours: answers.scrollHours,
+      });
       onComplete(answers);
-      navigate('/analyze');
+      navigate('/analyze', { replace: true });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save routine.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleBack = () => {
     if (step === 0) {
-      navigate('/auth');
+      navigate('/dashboard');
     } else {
       setStep((prev) => prev - 1);
     }
   };
+
+  const progressPct = ((step + 1) / TOTAL_STEPS) * 100;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-primary-50 px-4">
@@ -238,48 +245,211 @@ const RoutineInputScreen: React.FC<RoutineInputScreenProps> = ({
           Routine Setup
         </p>
         <h2 className="mb-6 text-2xl font-semibold text-primary-900">
-          Question {step + 1} of {questions.length}
+          Step {step + 1} of {TOTAL_STEPS}
         </h2>
-        <div className="mb-6">
-          <p className="mb-3 text-base font-medium text-primary-900">{current.label}</p>
-          {current.helper && (
-            <p className="mb-3 text-sm text-primary-600/80">{current.helper}</p>
-          )}
-          <input
-            type="text"
-            value={answers[current.id]}
-            onChange={(e) => handleChange(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-primary-200 bg-primary-50/50 px-3 py-2 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            placeholder={current.placeholder}
-          />
-        </div>
+
+        {/* Step 0: Study hours */}
+        {step === 0 && (
+          <div className="mb-6">
+            <p className="mb-3 text-base font-medium text-primary-900">
+              How many hours do you want to study per day?
+            </p>
+            <p className="mb-3 text-sm text-primary-600/80">
+              A rough estimate is enough.
+            </p>
+            <input
+              type="number"
+              min="0"
+              max="24"
+              step="0.5"
+              value={answers.studyHours}
+              onChange={(e) =>
+                setAnswers((prev) => ({ ...prev, studyHours: e.target.value }))
+              }
+              placeholder="e.g. 4"
+              className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+            />
+          </div>
+        )}
+
+        {/* Step 1: Sleep time */}
+        {step === 1 && (
+          <div className="mb-6 space-y-4">
+            <p className="text-base font-medium text-primary-900">
+              When do you usually sleep and wake up?
+            </p>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-primary-700">
+                Sleep time
+              </label>
+              <input
+                type="time"
+                value={answers.sleepTime}
+                onChange={(e) =>
+                  setAnswers((prev) => ({ ...prev, sleepTime: e.target.value }))
+                }
+                className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-primary-700">
+                Wake time
+              </label>
+              <input
+                type="time"
+                value={answers.wakeTime}
+                onChange={(e) =>
+                  setAnswers((prev) => ({ ...prev, wakeTime: e.target.value }))
+                }
+                className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-primary-700">
+                Sleep hours (total)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="24"
+                step="0.5"
+                value={answers.sleepHours}
+                onChange={(e) =>
+                  setAnswers((prev) => ({ ...prev, sleepHours: e.target.value }))
+                }
+                placeholder="e.g. 7"
+                className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Classes schedule (image) */}
+        {step === 2 && (
+          <div className="mb-6">
+            <p className="mb-3 text-base font-medium text-primary-900">
+              Share your classes schedule
+            </p>
+            <p className="mb-3 text-sm text-primary-600/80">
+              You can upload a screenshot or photo of your timetable.
+            </p>
+            <label className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 px-4 py-8 transition hover:border-primary-400 hover:bg-primary-100/50">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = () =>
+                      setAnswers((prev) => ({
+                        ...prev,
+                        classesScheduleImage: reader.result as string,
+                      }));
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+              {answers.classesScheduleImage ? (
+                <div className="space-y-2 text-center">
+                  <img
+                    src={answers.classesScheduleImage}
+                    alt="Schedule preview"
+                    className="mx-auto max-h-40 rounded-lg object-contain"
+                  />
+                  <span className="text-sm font-medium text-primary-600">
+                    Image added. Click to change.
+                  </span>
+                </div>
+              ) : (
+                <span className="text-sm font-medium text-primary-600">
+                  Click to upload an image
+                </span>
+              )}
+            </label>
+          </div>
+        )}
+
+        {/* Step 3: Hobbies time (optional) */}
+        {step === 3 && (
+          <div className="mb-6">
+            <p className="mb-3 text-base font-medium text-primary-900">
+              Hobbies time (if any)
+            </p>
+            <p className="mb-3 text-sm text-primary-600/80">
+              Optional. e.g. &quot;1 hour for guitar&quot; or leave blank.
+            </p>
+            <input
+              type="text"
+              value={answers.hobbiesTime}
+              onChange={(e) =>
+                setAnswers((prev) => ({ ...prev, hobbiesTime: e.target.value }))
+              }
+              placeholder="e.g. 1 hour for reading"
+              className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+            />
+          </div>
+        )}
+
+        {/* Step 4: Scroll time */}
+        {step === 4 && (
+          <div className="mb-6">
+            <p className="mb-3 text-base font-medium text-primary-900">
+              How many hours do you want to limit scrolling to?
+            </p>
+            <p className="mb-3 text-sm text-primary-600/80">
+              Social media, random browsing, etc.
+            </p>
+            <input
+              type="number"
+              min="0"
+              max="24"
+              step="0.5"
+              value={answers.scrollHours}
+              onChange={(e) =>
+                setAnswers((prev) => ({ ...prev, scrollHours: e.target.value }))
+              }
+              placeholder="e.g. 1.5"
+              className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
+            />
+          </div>
+        )}
+
         <div className="mb-4 flex items-center justify-between text-xs text-primary-600">
           <span>
-            Progress {step + 1}/{questions.length}
+            Progress {step + 1}/{TOTAL_STEPS}
           </span>
           <div className="h-1 w-32 overflow-hidden rounded-full bg-primary-200">
             <div
               className="h-full bg-primary-500 transition-all"
-              style={{
-                width: `${((step + 1) / questions.length) * 100}%`,
-              }}
+              style={{ width: `${progressPct}%` }}
             />
           </div>
         </div>
+        {saveError && (
+          <p className="mb-3 text-xs font-medium text-rose-600">{saveError}</p>
+        )}
         <div className="mt-4 flex justify-between gap-3">
           <button
             type="button"
             onClick={handleBack}
-            className="flex-1 rounded-lg border border-primary-300 px-4 py-2 text-sm font-medium text-primary-800 hover:bg-primary-100"
+            disabled={isSaving}
+            className="flex-1 rounded-lg border border-primary-300 px-4 py-2 text-sm font-medium text-primary-800 hover:bg-primary-100 disabled:opacity-50"
           >
-            {step === 0 ? 'Back to login' : 'Back'}
+            Back
           </button>
           <button
             type="button"
             onClick={handleNext}
-            className="flex-1 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+            disabled={isSaving}
+            className="flex-1 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50"
           >
-            {step === questions.length - 1 ? 'Finish & analyze' : 'Next'}
+            {isSaving
+              ? 'Saving…'
+              : step === TOTAL_STEPS - 1
+                ? 'Finish & continue'
+                : 'Next'}
           </button>
         </div>
       </div>
@@ -308,18 +478,20 @@ const AnalyzeScreen: React.FC = () => {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-primary-50 px-4 text-center">
-      <h2 className="mb-2 text-2xl font-semibold text-primary-900">Analyzing your routine</h2>
+      <h2 className="mb-2 text-2xl font-semibold text-primary-900">
+        AI is analysing your routine
+      </h2>
       <p className="mb-6 text-sm text-primary-600">
-        We are creating a balanced plan for today based on your answers.
+        Creating your daily plan based on your preferences…
       </p>
       <div className="mb-3 h-2 w-64 overflow-hidden rounded-full bg-primary-200">
         <div
-          className="h-full bg-primary-500 transition-all"
+          className="h-full bg-primary-500 transition-all duration-300"
           style={{ width: `${progress}%` }}
         />
       </div>
       <p className="text-xs uppercase tracking-[0.25em] text-primary-600">
-        Analyzing...
+        Analysing…
       </p>
     </div>
   );
@@ -506,6 +678,14 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             {routine.studyHours ? `${routine.studyHours} hrs` : 'Not set'}
           </p>
         </div>
+        <div className="rounded-xl border border-primary-200 bg-white p-4 text-sm shadow-sm">
+          <h3 className="mb-1 text-xs font-semibold uppercase tracking-[0.15em] text-primary-600">
+            Scroll limit
+          </h3>
+          <p className="text-lg font-medium text-primary-900">
+            {routine.scrollHours ? `${routine.scrollHours} hrs` : 'Not set'}
+          </p>
+        </div>
       </section>
     </div>
   );
@@ -672,6 +852,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <ul className="mt-2 space-y-1 text-sm text-primary-800">
           <li>Wake: {routine.wakeTime || 'Not set'}</li>
           <li>Sleep: {routine.sleepTime || 'Not set'}</li>
+          <li>Sleep hours: {routine.sleepHours ? `${routine.sleepHours} hrs` : 'Not set'}</li>
           <li>
             Study goal:{' '}
             {routine.studyHours ? `${routine.studyHours} hrs` : 'Not set'}
@@ -680,6 +861,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
             Scroll limit:{' '}
             {routine.scrollHours ? `${routine.scrollHours} hrs` : 'Not set'}
           </li>
+          {routine.hobbiesTime && (
+            <li>Hobbies: {routine.hobbiesTime}</li>
+          )}
+          {routine.classesScheduleImage && (
+            <li>Classes schedule: image uploaded</li>
+          )}
         </ul>
       </section>
 

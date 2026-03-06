@@ -16,7 +16,7 @@ if (!MONGODB_URI) {
 }
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 let db;
 
@@ -32,6 +32,13 @@ function getUsersCollection() {
     throw new Error('Database not initialized yet.');
   }
   return db.collection('users');
+}
+
+function getRoutinesCollection() {
+  if (!db) {
+    throw new Error('Database not initialized yet.');
+  }
+  return db.collection('routines');
 }
 
 app.post('/api/signup', async (req, res) => {
@@ -143,6 +150,55 @@ app.post('/api/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Error in /api/login:', error);
+    if (error.message === 'Database not initialized yet.') {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+    return res
+      .status(500)
+      .json({ success: false, message: 'Internal server error.' });
+  }
+});
+
+app.post('/api/routine', async (req, res) => {
+  try {
+    const { userId, routine } = req.body || {};
+
+    if (!userId || typeof userId !== 'string') {
+      return res
+        .status(400)
+        .json({ success: false, message: 'User ID is required.' });
+    }
+
+    if (!routine || typeof routine !== 'object') {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Routine data is required.' });
+    }
+
+    const routines = getRoutinesCollection();
+    const now = new Date();
+
+    const doc = {
+      userId,
+      studyHours: routine.studyHours ?? '',
+      sleepTime: routine.sleepTime ?? '',
+      wakeTime: routine.wakeTime ?? '',
+      sleepHours: routine.sleepHours ?? '',
+      classesScheduleImage: routine.classesScheduleImage ?? null,
+      hobbiesTime: routine.hobbiesTime ?? '',
+      scrollHours: routine.scrollHours ?? '',
+      updatedAt: now,
+    };
+
+    await routines.updateOne(
+      { userId },
+      { $set: doc },
+      { upsert: true }
+    );
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Error in /api/routine:', error);
     if (error.message === 'Database not initialized yet.') {
       return res.status(500).json({ success: false, message: error.message });
     }

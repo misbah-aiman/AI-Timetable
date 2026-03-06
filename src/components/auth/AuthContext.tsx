@@ -24,6 +24,12 @@ type AuthContextValue = {
 
 const STORAGE_KEY = 'ai-timetable:auth-user';
 
+/** In production set REACT_APP_API_URL to your backend (e.g. https://api.yourapp.com). Leave unset in dev to use proxy. */
+function getApiBaseUrl(): string {
+  const url = process.env.REACT_APP_API_URL ?? '';
+  return url.replace(/\/$/, '');
+}
+
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 interface AuthProviderProps {
@@ -66,22 +72,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
+      const base = getApiBaseUrl();
+      let response: Response;
+      try {
+        response = await fetch(`${base}/api/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+      } catch (err) {
+        throw new Error('Could not reach the server. Please check your connection and try again.');
+      }
       const data = await response.json().catch(() => ({}));
-
       if (!response.ok || !data?.success || !data.user) {
-        const message =
-          data?.message || 'Unable to log in with those credentials.';
+        const message = data?.message || 'Unable to log in with those credentials.';
         throw new Error(message);
       }
-
       persistUser(data.user as AuthUser);
     },
     [persistUser]
@@ -89,22 +95,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signup = useCallback(
     async (email: string, password: string, name?: string) => {
-      const response = await fetch('/api/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password, name }),
-      });
-
+      const base = getApiBaseUrl();
+      let response: Response;
+      try {
+        response = await fetch(`${base}/api/signup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, name }),
+        });
+      } catch (err) {
+        throw new Error('Could not reach the server. Please check your connection and try again.');
+      }
       const data = await response.json().catch(() => ({}));
-
       if (!response.ok || !data?.success || !data.user) {
-        const message =
-          data?.message || 'Unable to create an account right now.';
+        const message = data?.message || 'Unable to create an account. Please try again.';
         throw new Error(message);
       }
-
       persistUser(data.user as AuthUser);
     },
     [persistUser]

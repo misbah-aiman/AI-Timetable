@@ -1,2 +1,12 @@
-// Placeholder exports for services
-export {};
+export {
+  AIService,
+  type AIProvider,
+  type AIServiceConfig,
+  type GenerateWeeklyPlanInput,
+  type GeneratedWeeklyPlan,
+  type GenerateWeeklyReportInput,
+  type GeneratedWeeklyReport,
+  type AnalyzeStudyPatternsInput,
+  type StudyPatternAnalysis,
+} from './aiService';
+export { saveRoutine, type RoutinePayload } from './routineService';
