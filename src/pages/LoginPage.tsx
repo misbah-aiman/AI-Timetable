@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFarcaster } from '../context/FarcasterContext';
 import { useAuth } from '../components/auth';
@@ -13,17 +13,18 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFarcasterSubmitting, setIsFarcasterSubmitting] = useState(false);
 
-  // When opened inside Farcaster with user, sign them in and go to home
-  useEffect(() => {
-    if (!isReady || !fcUser) return;
+  const handleFarcasterContinue = () => {
+    if (!fcUser) return;
+    setIsFarcasterSubmitting(true);
     loginWithFarcaster(
       fcUser.fid,
       fcUser.username,
       fcUser.displayName
     );
     navigate('/dashboard', { replace: true });
-  }, [isReady, fcUser, loginWithFarcaster, navigate]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,18 +57,6 @@ const LoginPage: React.FC = () => {
     );
   }
 
-  // Farcaster user: show brief loading while redirect runs
-  if (fcUser) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-primary-50">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600" />
-          <p className="mt-4 text-primary-700">Signing you in...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-primary-50 px-4">
       <div className="w-full max-w-md space-y-6 rounded-2xl bg-white p-8 shadow-soft ring-1 ring-primary-200/60">
@@ -77,6 +66,20 @@ const LoginPage: React.FC = () => {
         <p className="text-center text-sm text-primary-600">
           Sign in to your account to continue to AI Timetable.
         </p>
+
+        {fcUser && (
+          <div className="space-y-3">
+            <Button
+              type="button"
+              fullWidth
+              isLoading={isFarcasterSubmitting}
+              onClick={handleFarcasterContinue}
+            >
+              Continue as {fcUser.displayName || fcUser.username || `@${fcUser.fid}`}
+            </Button>
+            <p className="text-center text-xs text-primary-500">or sign in with email</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
