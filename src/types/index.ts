@@ -71,6 +71,7 @@ export interface User {
   
   export interface WeeklyReport {
     weekStart: string;
+    weekEnd: string;
     totalHours: number;
     targetHours: number;
     completionRate: number;
