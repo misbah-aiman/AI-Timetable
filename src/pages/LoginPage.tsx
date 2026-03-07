@@ -71,7 +71,7 @@ const LoginPage: React.FC = () => {
           Sign in
         </h2>
         <p className="text-center text-sm text-primary-600">
-          Sign in to your account to continue to AI Timetable.
+          Sign in to your account
         </p>
 
         {fcUser && (
@@ -125,14 +125,6 @@ const LoginPage: React.FC = () => {
             Sign up
           </button>
         </div>
-
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          className="w-full text-center text-xs text-primary-600 hover:text-primary-700"
-        >
-          Back to home
-        </button>
       </div>
     </div>
   );

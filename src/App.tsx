@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Navigate,
   Route,
@@ -9,7 +9,7 @@ import {
 import { useAuth, ProtectedRoute } from './components/auth';
 import { LoginPage, SignupPage } from './pages';
 import { FarcasterProvider } from './context/FarcasterContext';
-import { saveRoutine, getRoutine, AIService, type GeneratedWeeklyPlan, type GenerateWeeklyPlanInput, type AIProvider } from './services';
+import { saveRoutine, AIService, type GeneratedWeeklyPlan, type GenerateWeeklyPlanInput, type AIProvider } from './services';
 import type { Course, UserPreferences, Reminder } from './types';
 import { Card, Button } from './components/ui';
 

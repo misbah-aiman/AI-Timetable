@@ -60,7 +60,7 @@ export const SignupPage: React.FC = () => {
           Create your account
         </h2>
         <p className="mb-6 text-center text-sm text-primary-600">
-          Set up your AI timetable profile in a minute.
+          Set up your profile
         </p>
 
         <form
@@ -125,14 +125,6 @@ export const SignupPage: React.FC = () => {
             Log in
           </button>
         </div>
-
-        <button
-          type="button"
-          onClick={() => navigate('/')}
-          className="mt-4 w-full text-center text-xs text-primary-600 hover:text-primary-700"
-        >
-          Back to splash
-        </button>
       </div>
     </div>
   );
