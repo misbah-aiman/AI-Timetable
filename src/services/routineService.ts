@@ -6,6 +6,7 @@ export type RoutinePayload = {
   classesScheduleImage: string | null;
   hobbiesTime: string;
   scrollHours: string;
+  freeTime: string;
 };
 
 function getApiBaseUrl(): string {
@@ -54,5 +55,18 @@ export async function getRoutine(userId: string): Promise<RoutinePayload | null>
       throw new Error('Could not reach the server. Please check your connection.');
     }
     throw error;
+  }
+}
+
+export async function deleteAccount(userId: string): Promise<void> {
+  const base = getApiBaseUrl();
+  const response = await fetch(`${base}/api/account/${userId}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data?.success) {
+    const message = data?.message ?? 'Failed to delete account. Please try again.';
+    throw new Error(message);
   }
 }

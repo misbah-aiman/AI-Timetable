@@ -9,4 +9,4 @@ export {
   type AnalyzeStudyPatternsInput,
   type StudyPatternAnalysis,
 } from './aiService';
-export { saveRoutine, getRoutine, type RoutinePayload } from './routineService';
+export { saveRoutine, getRoutine, deleteAccount, type RoutinePayload } from './routineService';

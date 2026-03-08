@@ -7,9 +7,9 @@ import {
   useNavigate,
 } from 'react-router-dom';
 import { useAuth, ProtectedRoute } from './components/auth';
-import { LoginPage, SignupPage } from './pages';
+import { LoginPage, SignupPage, Onboarding } from './pages';
 import { FarcasterProvider } from './context/FarcasterContext';
-import { saveRoutine, AIService, type GeneratedWeeklyPlan, type GenerateWeeklyPlanInput, type AIProvider } from './services';
+import { AIService, type GeneratedWeeklyPlan, type GenerateWeeklyPlanInput, type AIProvider } from './services';
 import type { Course, UserPreferences, Reminder } from './types';
 import { Card, Button } from './components/ui';
 
@@ -23,6 +23,7 @@ type RoutineAnswers = {
   classesScheduleImage: string | null; // data URL or null
   hobbiesTime: string;
   scrollHours: string;
+  freeTime: string;
 };
 
 const defaultRoutine: RoutineAnswers = {
@@ -33,6 +34,7 @@ const defaultRoutine: RoutineAnswers = {
   classesScheduleImage: null,
   hobbiesTime: '',
   scrollHours: '',
+  freeTime: '',
 };
 
 const daysOfWeek: string[] = [
@@ -148,6 +150,9 @@ const AppShell: React.FC = () => {
     if (answers.hobbiesTime) {
       plan.push(`Hobbies: ${answers.hobbiesTime}`);
     }
+    if (answers.freeTime) {
+      plan.push(`Free time: ${answers.freeTime}`);
+    }
     setTodayPlan(plan);
   };
 
@@ -202,7 +207,7 @@ const AppShell: React.FC = () => {
           path="/routine"
           element={
             <ProtectedRoute>
-              <RoutineInputScreen
+              <Onboarding
                 initial={routine}
                 onComplete={handleRoutineComplete}
               />
@@ -249,8 +254,7 @@ const SplashScreen: React.FC = () => {
         AI Timetable
       </h1>
       <p className="mb-10 max-w-md text-sm text-primary-700/90 sm:text-base">
-        Welcome to your AI-powered study planner. Build a smarter routine for
-        sleep, study and screen time.
+        Welcome to your AI-powered study planner
       </p>
       <button
         onClick={() => navigate('/auth')}
@@ -262,290 +266,6 @@ const SplashScreen: React.FC = () => {
   );
 };
 
-const TOTAL_STEPS = 5;
-
-type RoutineInputScreenProps = {
-  initial: RoutineAnswers;
-  onComplete: (answers: RoutineAnswers) => void;
-};
-
-const RoutineInputScreen: React.FC<RoutineInputScreenProps> = ({
-  initial,
-  onComplete,
-}) => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { user } = useAuth();
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<RoutineAnswers>(initial);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  // Routine setup is only for new users after signup; allow sessionStorage fallback if state was lost
-  const fromSignup = location.state?.fromSignup === true || sessionStorage.getItem('signup:needsRoutine') === '1';
-  if (!fromSignup) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  const handleNext = async () => {
-    if (step < TOTAL_STEPS - 1) {
-      setStep((prev) => prev + 1);
-      setSaveError(null);
-      return;
-    }
-    setSaveError(null);
-    setIsSaving(true);
-    try {
-      await saveRoutine(user!.id, {
-        studyHours: answers.studyHours,
-        sleepTime: answers.sleepTime,
-        wakeTime: answers.wakeTime,
-        sleepHours: answers.sleepHours,
-        classesScheduleImage: answers.classesScheduleImage,
-        hobbiesTime: answers.hobbiesTime,
-        scrollHours: answers.scrollHours,
-      });
-      onComplete(answers);
-      sessionStorage.removeItem('signup:needsRoutine');
-      navigate('/analyze', { replace: true });
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save routine.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleBack = () => {
-    if (step === 0) {
-      navigate('/dashboard');
-    } else {
-      setStep((prev) => prev - 1);
-    }
-  };
-
-  const progressPct = ((step + 1) / TOTAL_STEPS) * 100;
-
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-primary-50 px-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-soft ring-1 ring-primary-200/60">
-        <p className="mb-1 text-xs font-medium uppercase tracking-[0.2em] text-primary-600">
-          Input your routine
-        </p>
-        <h2 className="mb-6 text-2xl font-semibold text-primary-900">
-          Step {step + 1} of {TOTAL_STEPS}
-        </h2>
-
-        {/* Step 0: Sleep */}
-        {step === 0 && (
-          <div className="mb-6 space-y-4">
-            <p className="text-base font-medium text-primary-900">
-              When do you usually sleep and wake up?
-            </p>
-            <p className="text-sm text-primary-600/80">
-              We&apos;ll use this to plan study blocks around your rest.
-            </p>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-primary-700">
-                Bedtime
-              </label>
-              <input
-                type="time"
-                value={answers.sleepTime}
-                onChange={(e) =>
-                  setAnswers((prev) => ({ ...prev, sleepTime: e.target.value }))
-                }
-                className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-primary-700">
-                Wake time
-              </label>
-              <input
-                type="time"
-                value={answers.wakeTime}
-                onChange={(e) =>
-                  setAnswers((prev) => ({ ...prev, wakeTime: e.target.value }))
-                }
-                className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-primary-700">
-                How many hours of sleep do you aim for?
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="24"
-                step="0.5"
-                value={answers.sleepHours}
-                onChange={(e) =>
-                  setAnswers((prev) => ({ ...prev, sleepHours: e.target.value }))
-                }
-                placeholder="e.g. 7"
-                className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Step 1: Study hours */}
-        {step === 1 && (
-          <div className="mb-6">
-            <p className="mb-3 text-base font-medium text-primary-900">
-              How many hours do you want to study per day?
-            </p>
-            <p className="mb-3 text-sm text-primary-600/80">
-              A rough estimate is enough.
-            </p>
-            <input
-              type="number"
-              min="0"
-              max="24"
-              step="0.5"
-              value={answers.studyHours}
-              onChange={(e) =>
-                setAnswers((prev) => ({ ...prev, studyHours: e.target.value }))
-              }
-              placeholder="e.g. 4"
-              className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            />
-          </div>
-        )}
-
-        {/* Step 2: Scroll time */}
-        {step === 2 && (
-          <div className="mb-6">
-            <p className="mb-3 text-base font-medium text-primary-900">
-              How many hours do you want to limit scrolling to?
-            </p>
-            <p className="mb-3 text-sm text-primary-600/80">
-              Social media, random browsing, etc.
-            </p>
-            <input
-              type="number"
-              min="0"
-              max="24"
-              step="0.5"
-              value={answers.scrollHours}
-              onChange={(e) =>
-                setAnswers((prev) => ({ ...prev, scrollHours: e.target.value }))
-              }
-              placeholder="e.g. 1.5"
-              className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            />
-          </div>
-        )}
-
-        {/* Step 3: Classes schedule (image) */}
-        {step === 3 && (
-          <div className="mb-6">
-            <p className="mb-3 text-base font-medium text-primary-900">
-              Share your classes schedule
-            </p>
-            <p className="mb-3 text-sm text-primary-600/80">
-              You can upload a screenshot or photo of your timetable.
-            </p>
-            <label className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 px-4 py-8 transition hover:border-primary-400 hover:bg-primary-100/50">
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = () =>
-                      setAnswers((prev) => ({
-                        ...prev,
-                        classesScheduleImage: reader.result as string,
-                      }));
-                    reader.readAsDataURL(file);
-                  }
-                }}
-              />
-              {answers.classesScheduleImage ? (
-                <div className="space-y-2 text-center">
-                  <img
-                    src={answers.classesScheduleImage}
-                    alt="Schedule preview"
-                    className="mx-auto max-h-40 rounded-lg object-contain"
-                  />
-                  <span className="text-sm font-medium text-primary-600">
-                    Image added. Click to change.
-                  </span>
-                </div>
-              ) : (
-                <span className="text-sm font-medium text-primary-600">
-                  Click to upload an image
-                </span>
-              )}
-            </label>
-          </div>
-        )}
-
-        {/* Step 4: Hobbies time (optional) */}
-        {step === 4 && (
-          <div className="mb-6">
-            <p className="mb-3 text-base font-medium text-primary-900">
-              Hobbies time (if any)
-            </p>
-            <p className="mb-3 text-sm text-primary-600/80">
-              Optional. e.g. &quot;1 hour for guitar&quot; or leave blank.
-            </p>
-            <input
-              type="text"
-              value={answers.hobbiesTime}
-              onChange={(e) =>
-                setAnswers((prev) => ({ ...prev, hobbiesTime: e.target.value }))
-              }
-              placeholder="e.g. 1 hour for reading"
-              className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            />
-          </div>
-        )}
-
-        <div className="mb-4 flex items-center justify-between text-xs text-primary-600">
-          <span>
-            Progress {step + 1}/{TOTAL_STEPS}
-          </span>
-          <div className="h-1 w-32 overflow-hidden rounded-full bg-primary-200">
-            <div
-              className="h-full bg-primary-500 transition-all"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
-        </div>
-        {saveError && (
-          <p className="mb-3 text-xs font-medium text-rose-600">{saveError}</p>
-        )}
-        <div className="mt-4 flex justify-between gap-3">
-          <button
-            type="button"
-            onClick={handleBack}
-            disabled={isSaving}
-            className="flex-1 rounded-lg border border-primary-300 px-4 py-2 text-sm font-medium text-primary-800 hover:bg-primary-100 disabled:opacity-50"
-          >
-            Back
-          </button>
-          <button
-            type="button"
-            onClick={handleNext}
-            disabled={isSaving}
-            className="flex-1 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50"
-          >
-            {isSaving
-              ? 'Saving…'
-              : step === TOTAL_STEPS - 1
-                ? 'Generate my daily plan'
-                : 'Next'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const AnalyzeScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -607,6 +327,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [sidebarHovered, setSidebarHovered] = useState(false);
 
   const today = useMemo(() => {
     return new Date().toLocaleDateString(undefined, {
@@ -631,6 +352,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <div className="flex items-center gap-3">
           <button
             type="button"
+            onMouseEnter={() => setSidebarHovered(true)}
             onClick={() => setMenuOpen((prev) => !prev)}
             className={`flex h-9 w-9 items-center justify-center rounded-full border text-xs transition ${
               isLight
@@ -650,7 +372,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               Home
             </p>
             <h1 className={`text-base font-semibold sm:text-lg ${isLight ? 'text-primary-900' : 'text-slate-50'}`}>
-              Hi, {user?.name || user?.email || 'there'} 👋
+              Hi, {user?.name || user?.email || 'there'}
             </h1>
             <p className={`text-[11px] sm:text-xs ${isLight ? 'text-primary-600' : 'text-slate-400'}`}>
               {today}
@@ -658,17 +380,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onToggleTheme}
-            className={`hidden rounded-full border px-3 py-1 text-xs transition sm:inline-flex ${
-              isLight
-                ? 'border-primary-300 text-primary-800 hover:bg-primary-100'
-                : 'border-slate-700 text-slate-200 hover:bg-slate-800'
-            }`}
-          >
-            {theme === 'light' ? 'Dark mode' : 'Light mode'}
-          </button>
           <div className="relative">
             <button
               type="button"
@@ -716,34 +427,44 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       </header>
 
       <main className="flex flex-1 flex-col md:flex-row">
-        <nav
-          className={`hidden border-b px-4 py-3 text-sm md:block md:w-52 md:border-b-0 md:border-r ${
-            isLight ? 'border-primary-200 bg-white/60' : 'border-slate-800 bg-slate-950/90'
-          }`}
+        {/* Desktop Sidebar - Appears on hover */}
+        <div
+          className="hidden md:block md:relative"
+          onMouseEnter={() => setSidebarHovered(true)}
+          onMouseLeave={() => setSidebarHovered(false)}
         >
-          <ul className="flex gap-2 overflow-x-auto md:flex-col md:gap-1">
-            {menuItems.map((item) => {
-              const active = location.pathname === item.path;
-              return (
-                <li key={item.path}>
-                  <button
-                    type="button"
-                    onClick={() => navigate(item.path)}
-                    className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-medium transition ${
-                      active
-                        ? 'bg-primary-600 text-white'
-                        : isLight
-                          ? 'bg-primary-100 text-primary-800 hover:bg-primary-200'
-                          : 'bg-slate-900 text-slate-200 hover:bg-slate-800'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+          <nav
+            className={`fixed left-0 top-[57px] bottom-0 z-20 w-52 border-r px-4 py-3 text-sm transition-transform duration-300 ${
+              sidebarHovered ? 'translate-x-0' : '-translate-x-full'
+            } ${isLight ? 'border-primary-200 bg-white/95 backdrop-blur-sm' : 'border-slate-800 bg-slate-950/95 backdrop-blur-sm'}`}
+          >
+            <ul className="flex flex-col gap-1">
+              {menuItems.map((item) => {
+                const active = location.pathname === item.path;
+                return (
+                  <li key={item.path}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigate(item.path);
+                        setSidebarHovered(false);
+                      }}
+                      className={`w-full whitespace-nowrap rounded-full px-4 py-2 text-left text-xs font-medium transition ${
+                        active
+                          ? 'bg-primary-600 text-white'
+                          : isLight
+                            ? 'bg-primary-100 text-primary-800 hover:bg-primary-200'
+                            : 'bg-slate-900 text-slate-200 hover:bg-slate-800'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </div>
 
         <section className="flex-1 px-4 py-4 md:px-6 md:py-6">
           <div className="relative">
@@ -925,41 +646,6 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             )}
           </ul>
         )}
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-xl border border-primary-200 bg-white p-4 text-sm shadow-sm">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-[0.15em] text-primary-600">
-            Wake time
-          </h3>
-          <p className="text-lg font-medium text-primary-900">
-            {routine.wakeTime || 'Not set'}
-          </p>
-        </div>
-        <div className="rounded-xl border border-primary-200 bg-white p-4 text-sm shadow-sm">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-[0.15em] text-primary-600">
-            Sleep time
-          </h3>
-          <p className="text-lg font-medium text-primary-900">
-            {routine.sleepTime || 'Not set'}
-          </p>
-        </div>
-        <div className="rounded-xl border border-primary-200 bg-white p-4 text-sm shadow-sm">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-[0.15em] text-primary-600">
-            Study goal
-          </h3>
-          <p className="text-lg font-medium text-primary-900">
-            {routine.studyHours ? `${routine.studyHours} hrs` : 'Not set'}
-          </p>
-        </div>
-        <div className="rounded-xl border border-primary-200 bg-white p-4 text-sm shadow-sm">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-[0.15em] text-primary-600">
-            Scroll limit
-          </h3>
-          <p className="text-lg font-medium text-primary-900">
-            {routine.scrollHours ? `${routine.scrollHours} hrs` : 'Not set'}
-          </p>
-        </div>
       </section>
     </div>
   );
@@ -1874,9 +1560,30 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
   routine,
 }) => {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [goals, setGoals] = useState(
     'Stay consistent with study, protect sleep, and reduce doom‑scrolling.'
   );
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDeleteAccount = async () => {
+    if (!user?.id) return;
+    
+    setDeleteError(null);
+    setIsDeleting(true);
+    try {
+      const { deleteAccount } = await import('./services');
+      await deleteAccount(user.id);
+      logout();
+      navigate('/', { replace: true });
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete account.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -1901,6 +1608,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </li>
           {routine.hobbiesTime && (
             <li>Hobbies: {routine.hobbiesTime}</li>
+          )}
+          {routine.freeTime && (
+            <li>Free time: {routine.freeTime}</li>
           )}
           {routine.classesScheduleImage && (
             <li>Classes schedule: image uploaded</li>
@@ -1957,6 +1667,74 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </button>
         </div>
       </section>
+
+      <section className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/50 p-4 shadow-sm">
+        <h3 className="text-sm font-medium text-rose-900">Danger Zone</h3>
+        <p className="text-xs text-rose-600">
+          Permanently delete your account and all associated data. This action cannot be undone.
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowDeleteModal(true)}
+          className="mt-2 inline-flex items-center rounded-full border border-rose-400 bg-rose-100 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
+        >
+          Delete Account
+        </button>
+      </section>
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="mb-2 text-lg font-semibold text-primary-900">
+              Delete Account?
+            </h3>
+            <p className="mb-4 text-sm text-primary-600">
+              This will permanently delete your account, including:
+            </p>
+            <ul className="mb-4 space-y-1 text-sm text-primary-700">
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-rose-500" />
+                <span>Your email and password</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-rose-500" />
+                <span>Your routine data and preferences</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-rose-500" />
+                <span>All study sessions and reports</span>
+              </li>
+            </ul>
+            <p className="mb-6 text-sm font-medium text-rose-600">
+              This action cannot be undone.
+            </p>
+            {deleteError && (
+              <p className="mb-3 text-xs font-medium text-rose-600">{deleteError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeleteError(null);
+                }}
+                disabled={isDeleting}
+                className="flex-1 rounded-lg border border-primary-300 px-4 py-2 text-sm font-medium text-primary-800 hover:bg-primary-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={isDeleting}
+                className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

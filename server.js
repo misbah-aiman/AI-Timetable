@@ -188,6 +188,7 @@ app.get('/api/routine/:userId', async (req, res) => {
         classesScheduleImage: routine.classesScheduleImage ?? null,
         hobbiesTime: routine.hobbiesTime ?? '',
         scrollHours: routine.scrollHours ?? '',
+        freeTime: routine.freeTime ?? '',
       },
     });
   } catch (error) {
@@ -229,6 +230,7 @@ app.post('/api/routine', async (req, res) => {
       classesScheduleImage: routine.classesScheduleImage ?? null,
       hobbiesTime: routine.hobbiesTime ?? '',
       scrollHours: routine.scrollHours ?? '',
+      freeTime: routine.freeTime ?? '',
       updatedAt: now,
     };
 
@@ -241,6 +243,53 @@ app.post('/api/routine', async (req, res) => {
     return res.json({ success: true });
   } catch (error) {
     console.error('Error in /api/routine:', error);
+    if (error.message === 'Database not initialized yet.') {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+    return res
+      .status(500)
+      .json({ success: false, message: 'Internal server error.' });
+  }
+});
+
+app.delete('/api/account/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId || typeof userId !== 'string') {
+      return res
+        .status(400)
+        .json({ success: false, message: 'User ID is required.' });
+    }
+
+    const users = getUsersCollection();
+    const routines = getRoutinesCollection();
+
+    // Delete user account
+    const { ObjectId } = require('mongodb');
+    let userObjectId;
+    try {
+      userObjectId = new ObjectId(userId);
+    } catch (err) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Invalid user ID format.' });
+    }
+
+    const userResult = await users.deleteOne({ _id: userObjectId });
+
+    if (userResult.deletedCount === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'User not found.' });
+    }
+
+    // Delete associated routine
+    await routines.deleteOne({ userId });
+
+    return res.json({ success: true, message: 'Account deleted successfully.' });
+  } catch (error) {
+    console.error('Error in DELETE /api/account/:userId:', error);
     if (error.message === 'Database not initialized yet.') {
       return res.status(500).json({ success: false, message: error.message });
     }
