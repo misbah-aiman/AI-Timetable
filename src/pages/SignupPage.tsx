@@ -18,7 +18,10 @@ export const SignupPage: React.FC = () => {
     event.preventDefault();
     setError(null);
 
-    if (!email || !password) {
+    const emailTrimmed = email.trim();
+    const nameTrimmed = name.trim();
+
+    if (!emailTrimmed || !password) {
       setError('Please enter email and password.');
       return;
     }
@@ -35,7 +38,7 @@ export const SignupPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await signup(email, password, name || undefined);
+      await signup(emailTrimmed, password, nameTrimmed || undefined);
       // Mark that we need routine onboarding (survives redirect if auth state isn't ready yet)
       sessionStorage.setItem('signup:needsRoutine', '1');
       // Defer navigation so auth state can update before ProtectedRoute runs

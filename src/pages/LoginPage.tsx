@@ -30,13 +30,14 @@ const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!email || !password) {
+    const emailTrimmed = email.trim();
+    if (!emailTrimmed || !password) {
       setError('Please enter email and password.');
       return;
     }
     setIsSubmitting(true);
     try {
-      await login(email, password);
+      await login(emailTrimmed, password);
       // If we were sent here from /routine (e.g. auth wasn't ready right after signup), go back to routine onboarding
       const fromPath = (location.state as { from?: { pathname?: string } })?.from?.pathname;
       if (fromPath === '/routine') {

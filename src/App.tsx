@@ -1671,7 +1671,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
       <section className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/50 p-4 shadow-sm">
         <h3 className="text-sm font-medium text-rose-900">Danger Zone</h3>
         <p className="text-xs text-rose-600">
-          Permanently delete your account and all associated data. This action cannot be undone.
+          Removes your account and data stored in this browser on this device. This cannot be undone.
         </p>
         <button
           type="button"
@@ -1689,20 +1689,16 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
               Delete Account?
             </h3>
             <p className="mb-4 text-sm text-primary-600">
-              This will permanently delete your account, including:
+              This will remove your account from this browser&apos;s storage, including:
             </p>
             <ul className="mb-4 space-y-1 text-sm text-primary-700">
               <li className="flex items-start gap-2">
                 <span className="mt-1 h-1.5 w-1.5 rounded-full bg-rose-500" />
-                <span>Your email and password</span>
+                <span>Your saved email login and routine</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-1 h-1.5 w-1.5 rounded-full bg-rose-500" />
-                <span>Your routine data and preferences</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-rose-500" />
-                <span>All study sessions and reports</span>
+                <span>Weekly plans and reports stored here</span>
               </li>
             </ul>
             <p className="mb-6 text-sm font-medium text-rose-600">
