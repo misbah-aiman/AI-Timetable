@@ -41,6 +41,23 @@ function getRoutinesCollection() {
   return db.collection('routines');
 }
 
+function sendMongoConnectionError(res, error) {
+  const msg = String(error?.message || '');
+  if (
+    msg.includes('ECONNREFUSED') ||
+    msg.includes('ENOTFOUND') ||
+    msg.includes('MongoNetwork') ||
+    msg.includes('MongoServerSelection')
+  ) {
+    return res.status(500).json({
+      success: false,
+      message:
+        'Cannot connect to MongoDB. Start MongoDB and check MONGODB_URI in your .env file.',
+    });
+  }
+  return null;
+}
+
 app.post('/api/signup', async (req, res) => {
   try {
     const { email, password, name } = req.body || {};
@@ -93,6 +110,8 @@ app.post('/api/signup', async (req, res) => {
     if (error.message === 'Database not initialized yet.') {
       return res.status(500).json({ success: false, message: error.message });
     }
+    const mongoErr = sendMongoConnectionError(res, error);
+    if (mongoErr) return mongoErr;
     return res
       .status(500)
       .json({ success: false, message: 'Internal server error.' });
@@ -153,6 +172,8 @@ app.post('/api/login', async (req, res) => {
     if (error.message === 'Database not initialized yet.') {
       return res.status(500).json({ success: false, message: error.message });
     }
+    const mongoErr = sendMongoConnectionError(res, error);
+    if (mongoErr) return mongoErr;
     return res
       .status(500)
       .json({ success: false, message: 'Internal server error.' });

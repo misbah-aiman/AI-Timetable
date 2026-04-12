@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from '../config/apiBaseUrl';
+
 export type RoutinePayload = {
   studyHours: string;
   sleepTime: string;
@@ -8,11 +10,6 @@ export type RoutinePayload = {
   scrollHours: string;
   freeTime: string;
 };
-
-function getApiBaseUrl(): string {
-  const url = process.env.REACT_APP_API_URL ?? '';
-  return url.replace(/\/$/, '');
-}
 
 export async function saveRoutine(
   userId: string,

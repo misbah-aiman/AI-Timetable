@@ -22,11 +22,18 @@ export const FarcasterProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [context, setContext] = useState<FarcasterContextType>({ isReady: false });
 
   useEffect(() => {
+    const FARCASTER_CONTEXT_TIMEOUT_MS = 3000;
+
     const initFarcaster = async () => {
       try {
-        // Get the Farcaster context (user info)
-        const fcContext = await sdk.context;
-        
+        // Outside the Farcaster host, sdk.context may never settle — cap wait so email login still works.
+        const fcContext = await Promise.race([
+          sdk.context,
+          new Promise<undefined>((resolve) =>
+            setTimeout(() => resolve(undefined), FARCASTER_CONTEXT_TIMEOUT_MS)
+          ),
+        ]);
+
         if (fcContext?.user) {
           setContext({
             isReady: true,
@@ -38,16 +45,19 @@ export const FarcasterProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             },
           });
         } else {
-          setContext({ isReady: true }); // No user context (running outside Farcaster)
+          setContext({ isReady: true });
         }
       } catch (error) {
-        setContext({ 
-          isReady: true, 
-          error: error instanceof Error ? error : new Error('Unknown error') 
+        setContext({
+          isReady: true,
+          error: error instanceof Error ? error : new Error('Unknown error'),
         });
       } finally {
-        // Tell Farcaster the app is ready (dismisses splash screen)
-        sdk.actions.ready();
+        try {
+          sdk.actions.ready();
+        } catch {
+          // No host when running in a normal browser
+        }
       }
     };
 

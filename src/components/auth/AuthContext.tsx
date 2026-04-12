@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useState,
 } from 'react';
+import { getApiBaseUrl } from '../../config/apiBaseUrl';
 
 type AuthUser = {
   id: string;
@@ -24,10 +25,60 @@ type AuthContextValue = {
 
 const STORAGE_KEY = 'ai-timetable:auth-user';
 
-/** In production set REACT_APP_API_URL to your backend (e.g. https://api.yourapp.com). Leave unset in dev to use proxy. */
-function getApiBaseUrl(): string {
-  const url = process.env.REACT_APP_API_URL ?? '';
-  return url.replace(/\/$/, '');
+type ApiEnvelope = {
+  success?: boolean;
+  message?: string;
+  user?: AuthUser;
+};
+
+async function postJson<T extends ApiEnvelope>(
+  path: string,
+  body: unknown
+): Promise<{ response: Response; data: T | null; parseFailed: boolean }> {
+  const base = getApiBaseUrl();
+  const response = await fetch(`${base}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const text = await response.text();
+  let data: T | null = null;
+  let parseFailed = false;
+  if (text) {
+    try {
+      data = JSON.parse(text) as T;
+    } catch {
+      data = null;
+      parseFailed = true;
+    }
+  }
+  return { response, data, parseFailed };
+}
+
+function interpretAuthFailure(
+  response: Response,
+  data: ApiEnvelope | null,
+  parseFailed: boolean,
+  fallback: string
+): string {
+  if (data?.message && typeof data.message === 'string') {
+    return data.message;
+  }
+  if (parseFailed || (response.ok && data === null)) {
+    return 'The API did not return JSON. Run `npm run server` on port 5000 with MongoDB and MONGODB_URI set in `.env`.';
+  }
+  if (response.status >= 500) {
+    return 'Server error. Check MongoDB is running and MONGODB_URI in `.env` is correct.';
+  }
+  if (
+    response.status === 404 ||
+    response.status === 502 ||
+    response.status === 503 ||
+    response.status === 504
+  ) {
+    return 'Cannot reach the API on port 5000. Run `npm run server` (or `npm run dev`) with MongoDB running.';
+  }
+  return fallback;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -72,21 +123,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const base = getApiBaseUrl();
       let response: Response;
+      let data: ApiEnvelope | null;
+      let parseFailed: boolean;
       try {
-        response = await fetch(`${base}/api/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-      } catch (err) {
-        throw new Error('Could not reach the server. Please check your connection and try again.');
+        const result = await postJson<ApiEnvelope>('/api/login', { email, password });
+        response = result.response;
+        data = result.data;
+        parseFailed = result.parseFailed;
+      } catch {
+        throw new Error(
+          'Could not reach port 5000. Start the API with `npm run server` and ensure MongoDB is running (MONGODB_URI in `.env`).'
+        );
       }
-      const data = await response.json().catch(() => ({}));
       if (!response.ok || !data?.success || !data.user) {
-        const message = data?.message || 'Unable to log in with those credentials.';
-        throw new Error(message);
+        throw new Error(
+          interpretAuthFailure(
+            response,
+            data,
+            parseFailed,
+            'Unable to log in with those credentials.'
+          )
+        );
       }
       persistUser(data.user as AuthUser);
     },
@@ -95,21 +153,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signup = useCallback(
     async (email: string, password: string, name?: string) => {
-      const base = getApiBaseUrl();
       let response: Response;
+      let data: ApiEnvelope | null;
+      let parseFailed: boolean;
       try {
-        response = await fetch(`${base}/api/signup`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, name }),
+        const result = await postJson<ApiEnvelope>('/api/signup', {
+          email,
+          password,
+          name,
         });
-      } catch (err) {
-        throw new Error('Could not reach the server. Please check your connection and try again.');
+        response = result.response;
+        data = result.data;
+        parseFailed = result.parseFailed;
+      } catch {
+        throw new Error(
+          'Could not reach port 5000. Start the API with `npm run server` and ensure MongoDB is running (MONGODB_URI in `.env`).'
+        );
       }
-      const data = await response.json().catch(() => ({}));
       if (!response.ok || !data?.success || !data.user) {
-        const message = data?.message || 'Unable to create an account. Please try again.';
-        throw new Error(message);
+        throw new Error(
+          interpretAuthFailure(
+            response,
+            data,
+            parseFailed,
+            'Unable to create an account. Please try again.'
+          )
+        );
       }
       persistUser(data.user as AuthUser);
     },
