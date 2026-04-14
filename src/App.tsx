@@ -1,4 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Navigate,
   Route,
@@ -9,8 +16,12 @@ import {
 import { useAuth, ProtectedRoute } from './components/auth';
 import { LoginPage, SignupPage, Onboarding } from './pages';
 import { FarcasterProvider } from './context/FarcasterContext';
-import { AIService, type GeneratedWeeklyPlan, type GenerateWeeklyPlanInput, type AIProvider } from './services';
-import type { Course, UserPreferences, Reminder } from './types';
+import {
+  getRoutine,
+  fetchDailyTimetable,
+  type GeneratedDailyPlan,
+} from './services';
+import type { Course, Reminder } from './types';
 import { Card, Button } from './components/ui';
 
 type Theme = 'light' | 'dark';
@@ -37,16 +48,6 @@ const defaultRoutine: RoutineAnswers = {
   freeTime: '',
 };
 
-const daysOfWeek: string[] = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
-
 type TimerMode = 'study' | 'scroll' | 'sleep';
 
 type TrackedSession = {
@@ -61,13 +62,12 @@ type TrackedSession = {
 const STORAGE_KEY_SESSIONS = 'ai-timetable:sessions';
 const STORAGE_KEY_ACTIVE_TIMER = 'ai-timetable:active-timer';
 const STORAGE_KEY_REMINDERS = 'ai-timetable:reminders';
-const STORAGE_KEY_LAST_PLAN = 'ai-timetable:last-weekly-plan';
+const STORAGE_KEY_DAILY_PLAN = 'ai-timetable:daily-ai-plan';
 
-type StoredWeeklyPlan = {
-  plan: GeneratedWeeklyPlan;
-  weekStart: string;
-  weekEnd: string;
-  generatedAt?: string;
+type StoredDailyPlan = {
+  plan: GeneratedDailyPlan;
+  date: string;
+  generatedAt: string;
 };
 
 const defaultCourses: Course[] = [
@@ -109,51 +109,129 @@ function getCurrentWeekRange(): { weekStart: string; weekEnd: string } {
   return { weekStart: format(monday), weekEnd: format(sunday) };
 }
 
-function buildPreferencesFromRoutine(routine: RoutineAnswers): UserPreferences {
-  const studyHours = Number(routine.studyHours || '4');
+/** Local calendar YYYY-MM-DD (not UTC) — use for cache keys and week boundaries. */
+function formatLocalYMD(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Display API timetable "HH:MM" as locale 12-hour time (e.g. 9:00 AM). */
+function formatTime12h(hhmm: string): string {
+  const m = String(hhmm ?? '')
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return hhmm;
+  const h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  if (!Number.isFinite(h) || !Number.isFinite(min) || h > 23 || min > 59) return hhmm;
+  const d = new Date();
+  d.setHours(h, min, 0, 0);
+  return d.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+const SESSION_AUTO_GENERATE_DAILY = 'ai-timetable:auto-generate-after-analyze';
+
+/** Short, non-technical message for the timetable card (avoid raw API errors in UI). */
+function friendlyDailyPlanError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes('cannot reach') || m.includes('failed to fetch')) {
+    return "We couldn't reach the schedule service. Check your connection and try again.";
+  }
+  if (
+    m.includes('429') ||
+    m.includes('quota') ||
+    m.includes('billing') ||
+    m.includes('rate limit')
+  ) {
+    return 'The planner is temporarily unavailable. Please try again in a little while.';
+  }
+  if (m.includes('503') || m.includes('openai api key') || m.includes('no openai')) {
+    return "Today's planner isn't available on this device yet. Please try again later.";
+  }
+  if (message.length > 160) {
+    return 'Something went wrong while building your timetable. Please try again.';
+  }
+  return message;
+}
+
+function displayPlanAnalysis(text: string): string {
+  if (!text) return '';
+  if (/local fallback because openai quota|offline fallback because openai/i.test(text)) {
+    return "Here's a schedule based on your routine. Tap refresh anytime to update it.";
+  }
+  return text;
+}
+
+function routineToPayload(routine: RoutineAnswers) {
   return {
-    studyHoursPerDay: Number.isFinite(studyHours) && studyHours > 0 ? studyHours : 4,
-    sleepStart: routine.sleepTime || '23:00',
-    sleepEnd: routine.wakeTime || '07:00',
-    breakDuration: 10,
-    preferredStudyDays: daysOfWeek.slice(0, 5) as UserPreferences['preferredStudyDays'],
+    studyHours: routine.studyHours,
+    sleepTime: routine.sleepTime,
+    wakeTime: routine.wakeTime,
+    sleepHours: routine.sleepHours,
+    classesScheduleImage: routine.classesScheduleImage,
+    hobbiesTime: routine.hobbiesTime,
+    scrollHours: routine.scrollHours,
+    freeTime: routine.freeTime,
   };
 }
 
 const AppShell: React.FC = () => {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, user } = useAuth();
   const [theme, setTheme] = useState<Theme>('light');
   const [routine, setRoutine] = useState<RoutineAnswers>(defaultRoutine);
-  const [todayPlan, setTodayPlan] = useState<string[]>([]);
+  const previousUserIdRef = useRef<string | undefined>(undefined);
+
+  // Clear previous account's routine from memory as soon as the logged-in user id changes,
+  // so signup / switch never shows another user's answers before async load runs.
+  useLayoutEffect(() => {
+    if (!isAuthenticated) {
+      previousUserIdRef.current = undefined;
+      return;
+    }
+    if (!user?.id) return;
+    if (previousUserIdRef.current !== user.id) {
+      previousUserIdRef.current = user.id;
+      setRoutine(defaultRoutine);
+    }
+  }, [isAuthenticated, user?.id]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const saved = await getRoutine(user.id);
+      if (cancelled) return;
+      if (saved) {
+        setRoutine({
+          studyHours: saved.studyHours ?? '',
+          sleepTime: saved.sleepTime ?? '',
+          wakeTime: saved.wakeTime ?? '',
+          sleepHours: saved.sleepHours ?? '',
+          classesScheduleImage: saved.classesScheduleImage ?? null,
+          hobbiesTime: saved.hobbiesTime ?? '',
+          scrollHours: saved.scrollHours ?? '',
+          freeTime: saved.freeTime ?? '',
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, user?.id]);
 
   const handleLogout = () => {
     logout();
     setRoutine(defaultRoutine);
-    setTodayPlan([]);
   };
 
   const handleRoutineComplete = (answers: RoutineAnswers) => {
     setRoutine(answers);
-    const plan: string[] = [];
-    if (answers.studyHours) {
-      plan.push(`Study for ${answers.studyHours} hours`);
-    }
-    if (answers.scrollHours) {
-      plan.push(`Limit scrolling to ${answers.scrollHours} hours`);
-    }
-    if (answers.wakeTime && answers.sleepTime) {
-      plan.push(`Sleep from ${answers.sleepTime} to ${answers.wakeTime}`);
-    }
-    if (answers.sleepHours) {
-      plan.push(`${answers.sleepHours} hours of sleep`);
-    }
-    if (answers.hobbiesTime) {
-      plan.push(`Hobbies: ${answers.hobbiesTime}`);
-    }
-    if (answers.freeTime) {
-      plan.push(`Free time: ${answers.freeTime}`);
-    }
-    setTodayPlan(plan);
   };
 
   const toggleTheme = () => {
@@ -177,14 +255,14 @@ const AppShell: React.FC = () => {
             isAuthenticated ? (
               <Navigate to="/dashboard" replace />
             ) : (
-              <SplashScreen />
+              <Navigate to="/signup" replace />
             )
           }
         />
         <Route
           path="/auth"
           element={
-            <Navigate to="/login" replace />
+            <Navigate to="/signup" replace />
           }
         />
         <Route
@@ -208,6 +286,7 @@ const AppShell: React.FC = () => {
           element={
             <ProtectedRoute>
               <Onboarding
+                key={user?.id ?? 'onboarding'}
                 initial={routine}
                 onComplete={handleRoutineComplete}
               />
@@ -229,7 +308,6 @@ const AppShell: React.FC = () => {
               <DashboardLayout
                 theme={theme}
                 onToggleTheme={toggleTheme}
-                todayPlan={todayPlan}
                 routine={routine}
                 onLogout={handleLogout}
               />
@@ -242,31 +320,6 @@ const AppShell: React.FC = () => {
   );
 };
 
-const SplashScreen: React.FC = () => {
-  const navigate = useNavigate();
-
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary-100 via-primary-50 to-primary-200/80 px-4 text-center">
-      <div className="mb-10 flex h-20 w-20 items-center justify-center rounded-3xl bg-white shadow-soft ring-2 ring-primary-200/80">
-        <span className="text-3xl font-semibold tracking-tight text-primary-600">AI</span>
-      </div>
-      <h1 className="mb-3 text-3xl font-semibold tracking-tight text-primary-900 sm:text-4xl">
-        AI Timetable
-      </h1>
-      <p className="mb-10 max-w-md text-sm text-primary-700/90 sm:text-base">
-        Welcome to your AI-powered study planner
-      </p>
-      <button
-        onClick={() => navigate('/auth')}
-        className="rounded-full bg-primary-600 px-8 py-3 text-sm font-medium text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-      >
-        Start
-      </button>
-    </div>
-  );
-};
-
-
 const AnalyzeScreen: React.FC = () => {
   const navigate = useNavigate();
   const [progress, setProgress] = useState(0);
@@ -277,7 +330,8 @@ const AnalyzeScreen: React.FC = () => {
         const next = prev + 10;
         if (next >= 100) {
           clearInterval(interval);
-          navigate('/dashboard');
+          sessionStorage.setItem(SESSION_AUTO_GENERATE_DAILY, '1');
+          navigate('/dashboard', { replace: true });
         }
         return next;
       });
@@ -310,7 +364,6 @@ const AnalyzeScreen: React.FC = () => {
 type DashboardLayoutProps = {
   theme: Theme;
   onToggleTheme: () => void;
-  todayPlan: string[];
   routine: RoutineAnswers;
   onLogout: () => void;
 };
@@ -318,7 +371,6 @@ type DashboardLayoutProps = {
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   theme,
   onToggleTheme,
-  todayPlan,
   routine,
   onLogout,
 }) => {
@@ -340,7 +392,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/dashboard/time-tracker', label: 'Time tracker' },
-    { path: '/dashboard/weekly-plan', label: 'Weekly plan' },
     { path: '/dashboard/weekly-report', label: 'Weekly report' },
     { path: '/dashboard/settings', label: 'Settings' },
   ];
@@ -474,16 +525,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 element={
                   <DashboardHome
                     today={today}
-                    todayPlan={todayPlan}
                     routine={routine}
+                    isLight={theme === 'light'}
                   />
                 }
               />
               <Route path="/time-tracker" element={<TimeTrackerScreen />} />
-              <Route
-                path="/weekly-plan"
-                element={<WeeklyPlanScreen routine={routine} />}
-              />
               <Route path="/weekly-report" element={<WeeklyReportScreen />} />
               <Route
                 path="/settings"
@@ -550,101 +597,223 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
 type DashboardHomeProps = {
   today: string;
-  todayPlan: string[];
   routine: RoutineAnswers;
+  isLight: boolean;
 };
 
-const DashboardHome: React.FC<DashboardHomeProps> = ({
-  today,
-  todayPlan,
-  routine,
-}) => {
-  const [todaySlots, setTodaySlots] = useState<
-    { courseId: string; day: string; startTime: string; endTime: string; type: string }[]
-  >([]);
+const DashboardHome: React.FC<DashboardHomeProps> = ({ today, routine, isLight }) => {
+  const [dailyPlan, setDailyPlan] = useState<GeneratedDailyPlan | null>(null);
+  const [dailyLoading, setDailyLoading] = useState(false);
+  const [dailyError, setDailyError] = useState<string | null>(null);
+  const [, bumpClock] = useState(0);
+
+  const now = new Date();
+  const todayIso = formatLocalYMD(now);
+  const todayDayName = now.toLocaleDateString(undefined, { weekday: 'long' });
+  const dateLong = now.toLocaleDateString(undefined, {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  React.useEffect(() => {
+    const id = window.setInterval(() => bumpClock((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, [bumpClock]);
 
   React.useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY_LAST_PLAN);
-      if (!raw) return;
-      const stored = JSON.parse(raw) as StoredWeeklyPlan;
-      if (!stored?.plan?.slots) return;
-      const todayName = new Date().toLocaleDateString(undefined, {
-        weekday: 'long',
-      });
-      const slotsForToday = stored.plan.slots.filter(
-        (slot) => slot.day === todayName
-      );
-      setTodaySlots(slotsForToday);
+      const raw = localStorage.getItem(STORAGE_KEY_DAILY_PLAN);
+      if (!raw) {
+        setDailyPlan(null);
+        return;
+      }
+      const stored = JSON.parse(raw) as StoredDailyPlan;
+      if (stored?.date === todayIso && stored?.plan?.blocks?.length) {
+        setDailyPlan(stored.plan);
+      } else {
+        setDailyPlan(null);
+      }
     } catch {
-      // ignore parse errors
+      setDailyPlan(null);
     }
-  }, []);
+  }, [todayIso]);
 
-  const getCourseForId = (courseId: string) =>
-    defaultCourses.find((course) => course.id === courseId);
+  const handleGenerateDaily = useCallback(async () => {
+    const payload = routineToPayload(routine);
+    const dateStr = formatLocalYMD(new Date());
+    const dayNameStr = new Date().toLocaleDateString(undefined, {
+      weekday: 'long',
+    });
+    setDailyLoading(true);
+    setDailyError(null);
+    try {
+      const result = await fetchDailyTimetable(payload, dateStr, dayNameStr);
+      setDailyPlan(result);
+      const stored: StoredDailyPlan = {
+        plan: result,
+        date: dateStr,
+        generatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEY_DAILY_PLAN, JSON.stringify(stored));
+    } catch (err) {
+      setDailyError(
+        friendlyDailyPlanError(
+          err instanceof Error ? err.message : 'Failed to generate daily timetable.'
+        )
+      );
+    } finally {
+      setDailyLoading(false);
+    }
+  }, [routine]);
 
-  const hasAiPlanToday = todaySlots.length > 0;
+  React.useEffect(() => {
+    if (sessionStorage.getItem(SESSION_AUTO_GENERATE_DAILY) !== '1') return;
+    sessionStorage.removeItem(SESSION_AUTO_GENERATE_DAILY);
+    void handleGenerateDaily();
+  }, [handleGenerateDaily]);
+
+  const hasDailyBlocks = dailyPlan && dailyPlan.blocks.length > 0;
 
   return (
     <div className="space-y-4">
       <section className="rounded-2xl bg-gradient-to-r from-primary-500 to-primary-600 p-5 text-white shadow-soft">
-        <p className="text-xs uppercase tracking-[0.2em] text-primary-100">
-          Today&apos;s timetable
-        </p>
-        <h2 className="mt-1 text-xl font-semibold">
-          Here&apos;s your plan for today
-        </h2>
-        <p className="mt-1 text-xs text-primary-100">{today}</p>
-        {hasAiPlanToday ? (
-          <ul className="mt-3 space-y-2 text-sm">
-            {todaySlots
-              .slice()
-              .sort((a, b) => a.startTime.localeCompare(b.startTime))
-              .map((slot, index) => {
-                const course = getCourseForId(slot.courseId);
-                return (
-                  <li
-                    key={`${slot.courseId}-${slot.startTime}-${index}`}
-                    className="flex items-center justify-between gap-3 rounded-xl bg-white/10 px-3 py-2"
+        {dailyError && (
+          <div
+            role="alert"
+            className="mb-4 rounded-xl border border-white/25 bg-black/35 px-3 py-2.5 text-sm text-white"
+          >
+            <p className="font-semibold text-rose-100">Something went wrong</p>
+            <p className="mt-1 text-[13px] leading-snug text-primary-50">{dailyError}</p>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-primary-100">
+              Today&apos;s plan
+            </p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-tight">{todayDayName}</h2>
+            <p className="mt-1 text-sm text-primary-50/95">{dateLong}</p>
+            <p className="mt-0.5 text-xs text-primary-100/80">{today}</p>
+          </div>
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="border-white/40 bg-white/15 text-white hover:bg-white/25"
+              onClick={handleGenerateDaily}
+              isLoading={dailyLoading}
+            >
+              {hasDailyBlocks ? "Refresh today's plan" : "Get today's plan"}
+            </Button>
+          </div>
+        </div>
+
+        {hasDailyBlocks && dailyPlan ? (
+          <div className="mt-4 space-y-3">
+            {dailyPlan.analysis ? (
+              <p className="text-sm leading-relaxed text-primary-50">
+                {displayPlanAnalysis(dailyPlan.analysis)}
+              </p>
+            ) : null}
+            <div
+              className={`overflow-hidden rounded-lg border shadow-sm ${
+                isLight
+                  ? 'border-rose-200 bg-[#fff5f5] text-rose-950'
+                  : 'border-rose-800/60 bg-rose-950/40 text-rose-50'
+              }`}
+            >
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr
+                    className={
+                      isLight
+                        ? 'bg-[#fbc9c8] text-rose-950'
+                        : 'bg-rose-900/55 text-rose-100'
+                    }
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
-                      <div className="flex flex-col">
-                        <span className="text-xs font-semibold">
-                          {course?.code || 'Study session'}
-                        </span>
-                        <span className="text-[11px] text-primary-100/90">
-                          {course?.name}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right text-[11px] text-primary-50/90">
-                      <p>
-                        {slot.startTime}–{slot.endTime}
-                      </p>
-                      <p className="capitalize">{slot.type}</p>
-                    </div>
-                  </li>
-                );
-              })}
-          </ul>
+                    <th
+                      scope="col"
+                      className={`border px-3 py-2.5 text-center text-xs font-bold uppercase tracking-wide ${
+                        isLight ? 'border-rose-300' : 'border-rose-800'
+                      }`}
+                    >
+                      Time
+                    </th>
+                    <th
+                      scope="col"
+                      className={`border px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide ${
+                        isLight ? 'border-rose-300' : 'border-rose-800'
+                      }`}
+                    >
+                      Plan
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailyPlan.blocks
+                    .slice()
+                    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                    .map((block, index) => (
+                      <tr
+                        key={`${block.startTime}-${block.title}-${index}`}
+                        className={
+                          isLight
+                            ? index % 2 === 0
+                              ? 'bg-[#fff8f8]'
+                              : 'bg-white'
+                            : index % 2 === 0
+                              ? 'bg-rose-950/25'
+                              : 'bg-rose-900/20'
+                        }
+                      >
+                        <td
+                          className={`border px-2 py-2.5 text-center align-top text-xs font-medium tabular-nums ${
+                            isLight ? 'border-rose-200 text-rose-900' : 'border-rose-800/70 text-rose-100'
+                          }`}
+                        >
+                          {formatTime12h(block.startTime)} – {formatTime12h(block.endTime)}
+                        </td>
+                        <td
+                          className={`border px-3 py-2.5 align-top ${
+                            isLight ? 'border-rose-200 text-rose-900' : 'border-rose-800/70 text-rose-50'
+                          }`}
+                        >
+                          <span className="font-medium">{block.title}</span>
+                          {block.detail ? (
+                            <span className="mt-0.5 block text-[11px] leading-snug opacity-90">
+                              {block.detail}
+                            </span>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+            {dailyPlan.tips.length > 0 ? (
+              <div className="rounded-xl bg-black/15 px-3 py-2 text-[11px] text-primary-50">
+                <p className="mb-1 font-semibold text-primary-100">Tips</p>
+                <ul className="list-inside list-disc space-y-0.5">
+                  {dailyPlan.tips.map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
         ) : (
-          <ul className="mt-3 space-y-1 text-sm">
-            {todayPlan.length === 0 ? (
-              <li className="text-primary-100">
-                No AI timetable for today yet. Go to Weekly plan to generate
-                your schedule.
-              </li>
-            ) : (
-              todayPlan.map((item) => (
-                <li key={item} className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
-                  <span>{item}</span>
-                </li>
-              ))
-            )}
-          </ul>
+          <div className="mt-3 rounded-xl bg-white/10 px-3 py-3 text-sm text-primary-50">
+            <p className="font-medium text-white">No plan for today yet</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-primary-100/95">
+              After you finish setup, we build today&apos;s schedule for you. You can also tap{' '}
+              <strong className="text-white">Get today&apos;s plan</strong> whenever you want a fresh
+              version.
+            </p>
+          </div>
         )}
       </section>
     </div>
@@ -956,13 +1125,17 @@ const WeeklyReportScreen: React.FC = () => {
   }, []);
 
   const computeWeekRange = (startStr: string) => {
-    const start = new Date(startStr);
-    const end = new Date(startStr);
+    const [ys, ms, ds] = startStr.split('-').map((v) => parseInt(v, 10));
+    const start = new Date(ys, ms - 1, ds);
+    const end = new Date(start);
     end.setDate(start.getDate() + 6);
     return { start, end };
   };
 
   const { start, end } = computeWeekRange(weekStart);
+  const todayStr = formatLocalYMD(new Date());
+  const weekEndStr = formatLocalYMD(end);
+  const weekNotYetComplete = todayStr <= weekEndStr;
 
   const sessionsInWeek = sessions.filter((session) => {
     const time = Date.parse(session.startedAt);
@@ -1059,15 +1232,27 @@ const WeeklyReportScreen: React.FC = () => {
         </div>
       </div>
 
-      {sessionsInWeek.length === 0 ? (
+      {weekNotYetComplete ? (
+        <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/40 p-4 text-xs text-primary-600">
+          <p className="font-medium text-primary-800">No report yet</p>
+          <p className="mt-1">
+            Weekly reports are available after the week has finished (after{' '}
+            {end.toLocaleDateString(undefined, {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+            })}
+            ). Check back then.
+          </p>
+        </div>
+      ) : sessionsInWeek.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/40 p-4 text-xs text-primary-600">
           <p className="font-medium text-primary-800">
-            No report for this week yet.
+            No tracked time for this week.
           </p>
           <p className="mt-1">
-            Start the time tracker on study, sleep or scroll to build up history.
-            Once you have sessions in a full week, your weekly reports will
-            appear here.
+            Start the time tracker on study, sleep or scroll to build up history
+            for this week.
           </p>
         </div>
       ) : (
@@ -1097,332 +1282,6 @@ const WeeklyReportScreen: React.FC = () => {
           ))}
         </div>
       )}
-    </div>
-  );
-};
-
-type WeeklyPlanScreenProps = {
-  routine: RoutineAnswers;
-};
-
-const WeeklyPlanScreen: React.FC<WeeklyPlanScreenProps> = ({ routine }) => {
-  const [plan, setPlan] = useState<GeneratedWeeklyPlan | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const { weekStart: defaultWeekStart, weekEnd: defaultWeekEnd } = getCurrentWeekRange();
-  const [weekStart, setWeekStart] = useState(defaultWeekStart);
-  const [weekEnd, setWeekEnd] = useState(defaultWeekEnd);
-
-  const [courses] = useState<Course[]>(defaultCourses);
-
-  const preferences = useMemo(() => buildPreferencesFromRoutine(routine), [routine]);
-
-  const aiService = useMemo(() => {
-    const providerEnv = (process.env.REACT_APP_AI_PROVIDER as AIProvider | undefined) ?? 'openai';
-    const apiKey = process.env.REACT_APP_AI_API_KEY;
-    if (!apiKey) {
-      return null;
-    }
-    return new AIService({
-      provider: providerEnv,
-      apiKey,
-    });
-  }, []);
-
-  const handleWeekStartChange = (value: string) => {
-    setWeekStart(value);
-    if (!value) return;
-    const startDate = new Date(value);
-    const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + 6);
-    setWeekEnd(endDate.toISOString().slice(0, 10));
-  };
-
-  const handleGenerate = async () => {
-    if (!aiService) {
-      setError(
-        'AI is not configured. Please set REACT_APP_AI_PROVIDER and REACT_APP_AI_API_KEY in your .env file.'
-      );
-      return;
-    }
-    setIsGenerating(true);
-    setError(null);
-    try {
-      const input: GenerateWeeklyPlanInput = {
-        courses,
-        preferences,
-        weekStart,
-        weekEnd,
-      };
-      const result = await aiService.generateWeeklyPlan(input);
-      setPlan(result);
-
-      try {
-        const stored: StoredWeeklyPlan = {
-          plan: result,
-          weekStart,
-          weekEnd,
-          generatedAt: new Date().toISOString(),
-        };
-        localStorage.setItem(STORAGE_KEY_LAST_PLAN, JSON.stringify(stored));
-      } catch {
-        // ignore storage errors for last plan
-      }
-
-      try {
-        const existingRaw = localStorage.getItem(STORAGE_KEY_REMINDERS);
-        const existing: Reminder[] = existingRaw ? JSON.parse(existingRaw) : [];
-        const weekStartDate = new Date(weekStart);
-        const dayIndex: Record<string, number> = {
-          Monday: 0,
-          Tuesday: 1,
-          Wednesday: 2,
-          Thursday: 3,
-          Friday: 4,
-          Saturday: 5,
-          Sunday: 6,
-        };
-
-        const newReminders: Reminder[] = (result.slots || [])
-          .filter((slot) => slot.type === 'study')
-          .map((slot) => {
-            const offset = dayIndex[slot.day] ?? 0;
-            const date = new Date(weekStartDate);
-            date.setDate(date.getDate() + offset);
-
-            const [hours, minutes] = slot.startTime.split(':').map((v) => parseInt(v, 10));
-            if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
-              date.setHours(hours, minutes, 0, 0);
-            }
-
-            const course = courses.find((c) => c.id === slot.courseId);
-            const title = course ? `Study: ${course.code}` : 'Study session';
-
-            return {
-              id: `rem-${slot.courseId}-${date.getTime()}`,
-              title,
-              description: course?.name ?? '',
-              datetime: date.toISOString(),
-              type: 'study' as const,
-              completed: false,
-              courseId: slot.courseId,
-            };
-          });
-
-        const withoutFutureStudy = existing.filter((reminder) => {
-          if (reminder.type !== 'study') return true;
-          const time = Date.parse(reminder.datetime);
-          if (Number.isNaN(time)) return true;
-          return time < Date.now();
-        });
-
-        const merged = [...withoutFutureStudy, ...newReminders];
-        localStorage.setItem(STORAGE_KEY_REMINDERS, JSON.stringify(merged));
-      } catch {
-        // ignore reminder storage errors
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to generate weekly plan. Please try again.'
-      );
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const getCourseForId = (courseId: string) =>
-    courses.find((course) => course.id === courseId);
-
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
-        <div>
-          <h2 className="text-lg font-semibold text-primary-900">Weekly plan</h2>
-          <p className="mt-1 text-sm text-primary-600">
-            Generate a week-by-week timetable from your routine and courses, then
-            view it in a clean grid.
-          </p>
-        </div>
-        <div className="flex flex-col items-stretch gap-2 text-xs text-primary-600 md:items-end">
-          <div className="flex items-center gap-2">
-            <label htmlFor="week-start" className="text-xs font-medium">
-              Week starting
-            </label>
-            <input
-              id="week-start"
-              type="date"
-              value={weekStart}
-              onChange={(e) => handleWeekStartChange(e.target.value)}
-              className="rounded-lg border border-primary-200 bg-white px-2 py-1.5 text-xs text-primary-900 shadow-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-            />
-          </div>
-          <p className="text-[11px]">
-            {weekStart && weekEnd ? `Week: ${weekStart} → ${weekEnd}` : null}
-          </p>
-        </div>
-      </div>
-
-      <Card>
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.2em] text-primary-600">
-              Inputs
-            </p>
-            <p className="text-sm text-primary-800">
-              Using your routine to aim for{' '}
-              <span className="font-semibold">
-                {preferences.studyHoursPerDay}h/day
-              </span>{' '}
-              of focused study with a{' '}
-              <span className="font-semibold">
-                {preferences.breakDuration} min
-              </span>{' '}
-              break and nights from{' '}
-              <span className="font-semibold">
-                {preferences.sleepStart}–{preferences.sleepEnd}
-              </span>
-              .
-            </p>
-            <div className="flex flex-wrap gap-2 text-xs text-primary-700">
-              {courses.map((course) => (
-                <span
-                  key={course.id}
-                  className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-1 ring-1 ring-primary-200/70"
-                >
-                  <span className="h-2 w-2 rounded-full ring-2 ring-primary-200"
-                    style={{ backgroundColor: course.color || '#4f46e5' }}
-                  />
-                  <span className="font-medium">{course.code}</span>
-                  <span className="text-[11px] text-primary-500">
-                    {course.priority} priority
-                  </span>
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col items-stretch gap-2 md:items-end">
-            <Button
-              type="button"
-              size="md"
-              onClick={handleGenerate}
-              isLoading={isGenerating}
-            >
-              Generate weekly plan
-            </Button>
-            {error && (
-              <p className="max-w-xs text-xs font-medium text-rose-600">{error}</p>
-            )}
-            {!aiService && !error && (
-              <p className="max-w-xs text-xs text-amber-600">
-                AI is not configured yet. Add your provider and API key in{' '}
-                <code className="rounded bg-primary-50 px-1 py-0.5 text-[10px]">
-                  .env
-                </code>{' '}
-                to enable this feature.
-              </p>
-            )}
-          </div>
-        </div>
-
-        {plan && (
-          <div className="mt-6 space-y-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div className="max-w-xl space-y-1">
-                <p className="text-xs uppercase tracking-[0.2em] text-primary-600">
-                  AI summary
-                </p>
-                <p className="text-sm text-primary-800">{plan.summary}</p>
-              </div>
-              {plan.suggestions.length > 0 && (
-                <div className="max-w-sm rounded-xl bg-primary-50/80 p-3 text-xs text-primary-700 ring-1 ring-primary-200/70">
-                  <p className="mb-1 font-semibold text-primary-800">
-                    Suggestions
-                  </p>
-                  <ul className="space-y-1">
-                    {plan.suggestions.map((suggestion) => (
-                      <li key={suggestion} className="flex items-start gap-2">
-                        <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-primary-400" />
-                        <span>{suggestion}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-2">
-              <p className="mb-3 text-xs uppercase tracking-[0.2em] text-primary-600">
-                Weekly timetable
-              </p>
-              <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-7">
-                {daysOfWeek.map((day) => {
-                  const slotsForDay = (plan.slots || [])
-                    .filter((slot) => slot.day === day)
-                    .slice()
-                    .sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-                  return (
-                    <div
-                      key={day}
-                      className="flex flex-col rounded-2xl bg-white/80 p-3 shadow-soft ring-1 ring-primary-200/70"
-                    >
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-600">
-                          {day}
-                        </span>
-                      </div>
-                      <div className="flex flex-1 flex-col gap-2">
-                        {slotsForDay.length === 0 ? (
-                          <p className="mt-4 text-center text-[11px] text-primary-400">
-                            No sessions
-                          </p>
-                        ) : (
-                          slotsForDay.map((slot, index) => {
-                            const course = getCourseForId(slot.courseId);
-                            const color = course?.color || '#4f46e5';
-                            return (
-                              <div
-                                key={`${slot.courseId}-${slot.startTime}-${index}`}
-                                className="rounded-xl border border-primary-100 bg-primary-50/70 px-2.5 py-2 text-xs shadow-sm"
-                              >
-                                <div className="mb-0.5 flex items-center justify-between gap-2">
-                                  <div className="flex items-center gap-1.5">
-                                    <span
-                                      className="h-2 w-2 rounded-full"
-                                      style={{ backgroundColor: color }}
-                                    />
-                                    <span className="font-semibold text-primary-900">
-                                      {course?.code || 'Session'}
-                                    </span>
-                                  </div>
-                                  <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.16em] text-primary-600">
-                                    {slot.type}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-primary-600">
-                                  {slot.startTime}–{slot.endTime}
-                                </p>
-                                {course?.name && (
-                                  <p className="mt-0.5 text-[11px] text-primary-500">
-                                    {course.name}
-                                  </p>
-                                )}
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-      </Card>
     </div>
   );
 };

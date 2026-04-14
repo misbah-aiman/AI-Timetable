@@ -88,6 +88,7 @@ const APP_WIDE_KEYS = [
   'ai-timetable:active-timer',
   'ai-timetable:reminders',
   'ai-timetable:last-weekly-plan',
+  'ai-timetable:daily-ai-plan',
 ] as const;
 
 /** Removes saved credentials, routine, and app data for this browser. Caller should call `logout()` to clear the session. */

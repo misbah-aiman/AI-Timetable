@@ -8,6 +8,7 @@ import type {
   WeeklyReport,
   AIAnalysis,
 } from '../types';
+import type { RoutinePayload } from './routineService';
 
 export type AIProvider = 'openai' | 'anthropic' | 'gemini';
 
@@ -23,6 +24,41 @@ export interface GenerateWeeklyPlanInput {
   preferences: UserPreferences;
   weekStart: string;
   weekEnd: string;
+  /** Full onboarding routine — used to align the plan with sleep, study goals, scroll limits, etc. */
+  routine?: RoutinePayload | null;
+}
+
+export interface GenerateDailyPlanInput {
+  routine: RoutinePayload;
+  courses: Course[];
+  /** ISO date YYYY-MM-DD */
+  date: string;
+  /** Full weekday name, e.g. Monday */
+  dayName: string;
+}
+
+export interface DailyPlanBlock {
+  startTime: string;
+  endTime: string;
+  title: string;
+  category:
+    | 'sleep'
+    | 'wake'
+    | 'study'
+    | 'break'
+    | 'meal'
+    | 'class'
+    | 'hobby'
+    | 'scroll'
+    | 'free'
+    | 'other';
+  detail?: string;
+}
+
+export interface GeneratedDailyPlan {
+  analysis: string;
+  blocks: DailyPlanBlock[];
+  tips: string[];
 }
 
 export interface GeneratedWeeklyPlan {
@@ -80,7 +116,12 @@ export class AIService {
     this.apiKey = config.apiKey;
     this.model = config.model ?? DEFAULT_MODELS[config.provider];
     if (this.provider === 'openai') {
-      this.openaiClient = new OpenAI({ apiKey: this.apiKey });
+      // Required in Create React App: keys are bundled into client JS — fine for local dev only.
+      // For production, call OpenAI from your server so the key never ships to browsers.
+      this.openaiClient = new OpenAI({
+        apiKey: this.apiKey,
+        dangerouslyAllowBrowser: true,
+      });
     }
   }
 
@@ -97,6 +138,22 @@ export class AIService {
       summary: '',
       slots: [],
       suggestions: [],
+    });
+  }
+
+  /**
+   * Analyze the user's routine and produce a single-day hourly-style timetable.
+   */
+  async generateDailyPlan(input: GenerateDailyPlanInput): Promise<GeneratedDailyPlan> {
+    const prompt = buildDailyPlanPrompt(input);
+    const raw = await this.chat([
+      { role: 'system', content: SYSTEM_PROMPT_JSON },
+      { role: 'user', content: prompt },
+    ]);
+    return parseJsonResponse<GeneratedDailyPlan>(raw, {
+      analysis: '',
+      blocks: [],
+      tips: [],
     });
   }
 
@@ -228,13 +285,59 @@ export class AIService {
 const SYSTEM_PROMPT_JSON =
   'You are a helpful study planner. Always respond with valid JSON only, no markdown code fences or extra text.';
 
+function routineForPrompt(r: RoutinePayload): string {
+  const copy = { ...r };
+  if (
+    copy.classesScheduleImage &&
+    typeof copy.classesScheduleImage === 'string' &&
+    copy.classesScheduleImage.length > 120
+  ) {
+    copy.classesScheduleImage = '[user uploaded a class schedule image — infer typical class hours if needed]';
+  }
+  return JSON.stringify(copy);
+}
+
 function buildWeeklyPlanPrompt(input: GenerateWeeklyPlanInput): string {
+  const routineBlock =
+    input.routine != null
+      ? `\n- User routine (respect sleep window, daily study target, scroll/hobby/free time): ${routineForPrompt(input.routine)}`
+      : '';
+
   return `Generate a weekly study plan as JSON with keys: summary (string), slots (array of { courseId, day, startTime, endTime, type } where type is one of: lecture, lab, tutorial, study, break), suggestions (array of strings).
+
+The summary should briefly explain how the plan respects the user's routine (sleep, study hours, scroll limits, hobbies, free time).
+Distribute study and break slots across preferred study days; avoid scheduling deep work during the user's sleep window (${input.preferences.sleepStart}–${input.preferences.sleepEnd}).
 
 Input:
 - Courses: ${JSON.stringify(input.courses)}
 - Preferences: ${JSON.stringify(input.preferences)}
-- Week: ${input.weekStart} to ${input.weekEnd}
+- Week: ${input.weekStart} to ${input.weekEnd}${routineBlock}
+
+Return only the JSON object.`;
+}
+
+function buildDailyPlanPrompt(input: GenerateDailyPlanInput): string {
+  return `You are analyzing a student's routine and building ONE DAY's timetable.
+
+Return JSON with keys:
+- analysis (string): 2–4 sentences on how today's schedule fits their sleep, study goals, scroll limits, hobbies, and free time.
+- blocks (array): chronological { startTime, endTime, title, category, detail? } covering the waking day through bedtime.
+  - startTime/endTime: 24h "HH:MM" strings.
+  - category: one of sleep, wake, study, break, meal, class, hobby, scroll, free, other.
+  - title: short label (e.g. "Deep work — CS102", "Lunch", "Screen time cap").
+  - detail: optional extra line.
+- tips (array of strings): 2–5 practical tips for sticking to the plan today.
+
+Context:
+- Date: ${input.date} (${input.dayName})
+- Courses (for titles/priorities): ${JSON.stringify(input.courses)}
+- User routine: ${routineForPrompt(input.routine)}
+
+Rules:
+- Honor wake time (${input.routine.wakeTime || 'unknown'}) and sleep time (${input.routine.sleepTime || 'unknown'}) and approximate sleep hours (${input.routine.sleepHours || 'unknown'}).
+- Allocate roughly the stated daily study hours (${input.routine.studyHours || 'unknown'}) across study/break blocks.
+- Reflect scroll limit (${input.routine.scrollHours || 'unknown'}), hobbies (${input.routine.hobbiesTime || 'unknown'}), and free time (${input.routine.freeTime || 'unknown'}) in the blocks.
+- Use contiguous blocks; no overlaps; cover from morning routine through night wind-down.
 
 Return only the JSON object.`;
 }

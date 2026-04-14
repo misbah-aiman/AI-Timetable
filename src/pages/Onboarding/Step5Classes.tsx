@@ -1,7 +1,19 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import type { StepProps } from './types';
 
 export const Step5Classes: React.FC<StepProps> = ({ answers, onUpdate, onNext, onBack }) => {
+  useEffect(() => {
+    const onEnter = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.repeat) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest('button') || el?.closest('a')) return;
+      e.preventDefault();
+      onNext();
+    };
+    window.addEventListener('keydown', onEnter);
+    return () => window.removeEventListener('keydown', onEnter);
+  }, [onNext]);
+
   return (
     <div className="mb-6">
       <p className="mb-3 text-base font-medium text-primary-900">

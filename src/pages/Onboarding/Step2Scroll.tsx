@@ -1,5 +1,6 @@
 import React from 'react';
 import type { StepProps } from './types';
+import { chainEnter } from './enterAdvance';
 
 export const Step2Scroll: React.FC<StepProps> = ({ answers, onUpdate, onNext, onBack }) => {
   return (
@@ -17,6 +18,7 @@ export const Step2Scroll: React.FC<StepProps> = ({ answers, onUpdate, onNext, on
         step="0.5"
         value={answers.scrollHours}
         onChange={(e) => onUpdate({ scrollHours: e.target.value })}
+        onKeyDown={(e) => chainEnter(e, onNext)}
         placeholder="e.g. 1.5"
         className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/50 px-3.5 py-2.5 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
       />

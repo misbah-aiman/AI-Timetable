@@ -107,6 +107,9 @@ export const Onboarding: React.FC<OnboardingProps> = ({ initial, onComplete }) =
         <h2 className="mb-6 text-2xl font-semibold text-primary-900">
           Step {step + 1} of {TOTAL_STEPS}
         </h2>
+        <p className="mb-4 text-xs text-primary-500">
+          Tip: press <kbd className="rounded border border-primary-200 bg-primary-50 px-1.5 py-0.5 font-sans text-[10px] text-primary-700">Enter</kbd> to jump to the next field or step.
+        </p>
 
         {renderStep()}
 
