@@ -21,7 +21,7 @@ import {
   fetchDailyTimetable,
   type GeneratedDailyPlan,
 } from './services';
-import type { Course, Reminder } from './types';
+import type { Reminder } from './types';
 import { Card, Button } from './components/ui';
 
 type Theme = 'light' | 'dark';
@@ -69,33 +69,6 @@ type StoredDailyPlan = {
   date: string;
   generatedAt: string;
 };
-
-const defaultCourses: Course[] = [
-  {
-    id: 'course-1',
-    name: 'Mathematics I',
-    code: 'MATH101',
-    credits: 3,
-    priority: 'high',
-    color: '#0ea5e9',
-  },
-  {
-    id: 'course-2',
-    name: 'Computer Science',
-    code: 'CS102',
-    credits: 4,
-    priority: 'high',
-    color: '#22c55e',
-  },
-  {
-    id: 'course-3',
-    name: 'English',
-    code: 'ENG103',
-    credits: 2,
-    priority: 'medium',
-    color: '#a855f7',
-  },
-];
 
 function getCurrentWeekRange(): { weekStart: string; weekEnd: string } {
   const now = new Date();
