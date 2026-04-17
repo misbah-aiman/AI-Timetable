@@ -70,8 +70,6 @@ export const Onboarding: React.FC<OnboardingProps> = ({ initial, onComplete }) =
     setStep(targetStep);
   };
 
-  const progressPct = ((step + 1) / TOTAL_STEPS) * 100;
-
   const renderStep = () => {
     const stepProps = {
       answers,
@@ -101,26 +99,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ initial, onComplete }) =
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-primary-50 px-4">
       <div className="w-full max-w-lg rounded-2xl bg-white p-8 shadow-soft ring-1 ring-primary-200/60">
-        <p className="mb-1 text-xs font-medium uppercase tracking-[0.2em] text-primary-600">
-          Input your routine
-        </p>
-        <h2 className="mb-6 text-2xl font-semibold text-primary-900">
-          Step {step + 1} of {TOTAL_STEPS}
-        </h2>
-
         {renderStep()}
-
-        <div className="mb-4 flex items-center justify-between text-xs text-primary-600">
-          <span>
-            Progress {step + 1}/{TOTAL_STEPS}
-          </span>
-          <div className="h-1 w-32 overflow-hidden rounded-full bg-primary-200">
-            <div
-              className="h-full bg-primary-500 transition-all"
-              style={{ width: `${progressPct}%` }}
-            />
-          </div>
-        </div>
         {saveError && (
           <p className="mb-3 text-xs font-medium text-primary-700">{saveError}</p>
         )}
