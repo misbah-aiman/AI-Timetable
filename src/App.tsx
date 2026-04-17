@@ -31,7 +31,7 @@ type RoutineAnswers = {
   sleepTime: string;
   wakeTime: string;
   sleepHours: string;
-  classesScheduleImage: string | null; // data URL or null
+  classesScheduleImage: string | null;
   hobbiesTime: string;
   scrollHours: string;
   freeTime: string;
@@ -896,58 +896,104 @@ const TimeTrackerScreen: React.FC = () => {
   };
 
   const recentSessions = sessions.slice(0, 10);
+  const ringRadius = 98;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const cycleSeconds = 60 * 60;
+  const ringProgress = (elapsedSeconds % cycleSeconds) / cycleSeconds;
+  const ringOffset = ringCircumference * (1 - ringProgress);
+  const modeMeta: Record<TimerMode, { label: string; short: string }> = {
+    study: { label: 'Study', short: 'ST' },
+    scroll: { label: 'Scroll', short: 'SC' },
+    sleep: { label: 'Sleep', short: 'SL' },
+  };
+  const totalByMode = sessions.reduce(
+    (acc, session) => {
+      acc[session.mode] += session.durationSeconds;
+      return acc;
+    },
+    { study: 0, scroll: 0, sleep: 0 } as Record<TimerMode, number>
+  );
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-primary-900">Time tracker</h2>
+    <div className="mx-auto w-full max-w-sm space-y-4">
+      <h2 className="text-center text-lg font-semibold text-primary-900">
+        Stopwatch
+      </h2>
 
-      <div className="flex flex-wrap gap-2">
-        {(['study', 'scroll', 'sleep'] as const).map((value) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setMode(value)}
-            disabled={isRunning}
-            className={`rounded-full px-4 py-1.5 text-xs font-medium capitalize transition ${
-              mode === value
-                ? 'bg-primary-200 text-primary-800'
-                : 'bg-primary-100 text-primary-800 hover:bg-primary-200'
-            } ${isRunning ? 'opacity-60 cursor-not-allowed' : ''}`}
-          >
-            {value}
-          </button>
-        ))}
-      </div>
+      <Card className="px-4 py-5">
+        <div className="flex flex-col items-center">
+          <div className="relative h-64 w-64">
+            <svg
+              viewBox="0 0 220 220"
+              className="h-full w-full -rotate-90"
+              aria-hidden
+            >
+              <circle
+                cx="110"
+                cy="110"
+                r={ringRadius}
+                className="fill-none stroke-primary-100"
+                strokeWidth="10"
+              />
+              <circle
+                cx="110"
+                cy="110"
+                r={ringRadius}
+                className="fill-none stroke-primary-600 transition-all duration-700 ease-linear"
+                strokeWidth="10"
+                strokeLinecap="round"
+                strokeDasharray={ringCircumference}
+                strokeDashoffset={ringOffset}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <p className="text-xs uppercase tracking-[0.2em] text-primary-500">
+                {modeMeta[mode].label}
+              </p>
+              <p className="mt-2 font-mono text-4xl tabular-nums text-primary-900">
+                {formatTime(elapsedSeconds)}
+              </p>
+            </div>
+          </div>
 
-      <Card className="flex flex-col items-center text-center">
-        <p className="mb-1 text-xs uppercase tracking-[0.2em] text-primary-600">
-          Current session
-        </p>
-        <p className="mb-1 text-sm font-medium capitalize text-primary-900">
-          {mode}
-        </p>
+          <div className="mt-4 flex gap-2">
+            {(['study', 'scroll', 'sleep'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setMode(value)}
+                disabled={isRunning}
+                className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
+                  mode === value
+                    ? 'border border-primary-500 bg-primary-100 text-primary-800'
+                    : 'border border-primary-200 bg-white text-primary-700 hover:bg-primary-50'
+                } ${isRunning ? 'cursor-not-allowed opacity-60' : ''}`}
+              >
+                {modeMeta[value].label}
+              </button>
+            ))}
+          </div>
 
-        <p className="mb-4 text-4xl font-mono tabular-nums text-primary-900">
-          {formatTime(elapsedSeconds)}
-        </p>
-        <div className="flex gap-3">
-          <Button
-            type="button"
-            size="md"
-            onClick={handleStart}
-            disabled={isRunning}
-          >
-            Start
-          </Button>
-          <Button
-            type="button"
-            size="md"
-            variant="secondary"
-            onClick={handleStop}
-            disabled={!isRunning}
-          >
-            Stop & save
-          </Button>
+          <div className="mt-5 flex w-full items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (isRunning) return;
+                setElapsedSeconds(0);
+              }}
+              disabled={isRunning || elapsedSeconds === 0}
+              className="h-11 min-w-20 rounded-full border border-primary-300 bg-white px-4 text-sm font-medium text-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Reset
+            </button>
+            <button
+              type="button"
+              onClick={isRunning ? handleStop : handleStart}
+              className="h-12 min-w-24 rounded-full border border-primary-500 bg-primary-600 px-5 text-sm font-semibold text-white hover:bg-primary-700"
+            >
+              {isRunning ? 'Stop' : 'Start'}
+            </button>
+          </div>
         </div>
       </Card>
 
@@ -956,21 +1002,34 @@ const TimeTrackerScreen: React.FC = () => {
           <h3 className="text-sm font-semibold text-primary-900">
             Session history
           </h3>
-          {sessions.length > 0 && (
-            <p className="text-[11px] text-primary-500">
-              Showing last {recentSessions.length} session
-              {recentSessions.length > 1 ? 's' : ''}
-            </p>
-          )}
+          <span className="text-[11px] text-primary-500">
+            {recentSessions.length} recent
+          </span>
         </div>
+
+        <div className="mb-3 grid grid-cols-3 gap-2 text-center">
+          {(['study', 'scroll', 'sleep'] as const).map((value) => (
+            <div
+              key={value}
+              className="rounded-lg border border-primary-200 bg-primary-50 px-2 py-1.5"
+            >
+              <p className="text-[10px] uppercase tracking-wide text-primary-500">
+                {modeMeta[value].label}
+              </p>
+              <p className="mt-0.5 font-mono text-xs text-primary-900">
+                {formatTime(totalByMode[value])}
+              </p>
+            </div>
+          ))}
+        </div>
+
         {sessions.length === 0 ? (
           <p className="text-xs text-primary-500">No session yet.</p>
         ) : (
           <ul className="divide-y divide-primary-100 text-xs">
-            {recentSessions.map((session) => {
+            {recentSessions.map((session, index) => {
               const started = new Date(session.startedAt);
               const labelDate = started.toLocaleDateString(undefined, {
-                weekday: 'short',
                 month: 'short',
                 day: 'numeric',
               });
@@ -981,21 +1040,24 @@ const TimeTrackerScreen: React.FC = () => {
               return (
                 <li
                   key={session.id}
-                  className="flex items-center justify-between py-2"
+                  className="flex items-center justify-between py-2.5"
                 >
-                  <div className="flex flex-col">
-                    <span className="font-medium capitalize text-primary-900">
-                      {session.mode}
+                  <div className="flex items-center gap-2.5">
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary-100 text-[10px] font-semibold text-primary-700">
+                      {modeMeta[session.mode].short}
                     </span>
-                    <span className="text-[11px] text-primary-500">
-                      {labelDate} at {labelTime}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="font-medium text-primary-900">
+                        Session {sessions.length - index}
+                      </span>
+                      <span className="text-[11px] text-primary-500">
+                        {modeMeta[session.mode].label} • {labelDate} at {labelTime}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="font-mono text-xs text-primary-900">
-                      {formatTime(session.durationSeconds)}
-                    </span>
-                  </div>
+                  <span className="font-mono text-xs text-primary-900">
+                    +{formatTime(session.durationSeconds)}
+                  </span>
                 </li>
               );
             })}
