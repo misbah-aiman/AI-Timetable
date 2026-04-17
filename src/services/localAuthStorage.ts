@@ -1,8 +1,3 @@
-/**
- * Email/password accounts stored only in localStorage (browser).
- * Passwords are stored as SHA-256(email:password) — fine for local-only demos, not for production.
- */
-
 export const LOCAL_USERS_KEY = 'ai-timetable:local-users';
 
 type StoredUser = {

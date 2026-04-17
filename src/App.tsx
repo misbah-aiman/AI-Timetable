@@ -160,14 +160,6 @@ function friendlyDailyPlanError(message: string): string {
   return message;
 }
 
-function displayPlanAnalysis(text: string): string {
-  if (!text) return '';
-  if (/local fallback because openai quota|offline fallback because openai/i.test(text)) {
-    return "Here's a schedule based on your routine. Tap refresh anytime to update it.";
-  }
-  return text;
-}
-
 function routineToPayload(routine: RoutineAnswers) {
   return {
     studyHours: routine.studyHours,
@@ -235,14 +227,14 @@ const AppShell: React.FC = () => {
   };
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+    setTheme('light');
   };
 
   const appClasses = useMemo(
     () =>
       theme === 'light'
-        ? 'min-h-screen bg-primary-50 text-primary-900'
-        : 'min-h-screen bg-slate-900 text-slate-50',
+        ? 'min-h-screen bg-white text-primary-900'
+        : 'min-h-screen bg-white text-primary-900',
     [theme]
   );
 
@@ -467,7 +459,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                     onLogout();
                     navigate('/');
                   }}
-                  className="mt-3 w-full rounded-full border border-rose-500/70 px-3 py-1.5 text-[11px] font-medium text-rose-600 hover:bg-rose-50"
+                  className="mt-3 w-full rounded-full border border-primary-400 px-3 py-1.5 text-[11px] font-medium text-primary-700 hover:bg-primary-100"
                 >
                   Log out
                 </button>
@@ -502,7 +494,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       }}
                       className={`w-full whitespace-nowrap rounded-full px-4 py-2 text-left text-xs font-medium transition ${
                         active
-                          ? 'bg-primary-600 text-white'
+                          ? 'bg-primary-200 text-primary-800'
                           : isLight
                             ? 'bg-primary-100 text-primary-800 hover:bg-primary-200'
                             : 'bg-slate-900 text-slate-200 hover:bg-slate-800'
@@ -524,7 +516,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 path="/"
                 element={
                   <DashboardHome
-                    today={today}
                     routine={routine}
                     isLight={theme === 'light'}
                   />
@@ -576,7 +567,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       }}
                       className={`w-full rounded-full px-4 py-2 text-left text-xs font-medium transition ${
                         active
-                          ? 'bg-primary-600 text-white'
+                          ? 'bg-primary-200 text-primary-800'
                           : isLight
                             ? 'bg-primary-100 text-primary-800 hover:bg-primary-200'
                             : 'bg-slate-900 text-slate-200 hover:bg-slate-800'
@@ -596,26 +587,19 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 };
 
 type DashboardHomeProps = {
-  today: string;
   routine: RoutineAnswers;
   isLight: boolean;
 };
 
-const DashboardHome: React.FC<DashboardHomeProps> = ({ today, routine, isLight }) => {
+const DashboardHome: React.FC<DashboardHomeProps> = ({ routine, isLight }) => {
   const [dailyPlan, setDailyPlan] = useState<GeneratedDailyPlan | null>(null);
   const [dailyLoading, setDailyLoading] = useState(false);
   const [dailyError, setDailyError] = useState<string | null>(null);
   const [, bumpClock] = useState(0);
+  const autoRequestedDateRef = useRef<string | null>(null);
 
   const now = new Date();
   const todayIso = formatLocalYMD(now);
-  const todayDayName = now.toLocaleDateString(undefined, { weekday: 'long' });
-  const dateLong = now.toLocaleDateString(undefined, {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
 
   React.useEffect(() => {
     const id = window.setInterval(() => bumpClock((t) => t + 1), 60_000);
@@ -627,16 +611,20 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ today, routine, isLight }
       const raw = localStorage.getItem(STORAGE_KEY_DAILY_PLAN);
       if (!raw) {
         setDailyPlan(null);
+        setDailyError(null);
         return;
       }
       const stored = JSON.parse(raw) as StoredDailyPlan;
       if (stored?.date === todayIso && stored?.plan?.blocks?.length) {
         setDailyPlan(stored.plan);
+        setDailyError(null);
       } else {
         setDailyPlan(null);
+        setDailyError(null);
       }
     } catch {
       setDailyPlan(null);
+      setDailyError(null);
     }
   }, [todayIso]);
 
@@ -676,34 +664,39 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ today, routine, isLight }
 
   const hasDailyBlocks = dailyPlan && dailyPlan.blocks.length > 0;
 
+  // Automatically generate once per date when no cached plan exists.
+  React.useEffect(() => {
+    if (hasDailyBlocks || dailyLoading || dailyError) return;
+    if (autoRequestedDateRef.current === todayIso) return;
+    autoRequestedDateRef.current = todayIso;
+    void handleGenerateDaily();
+  }, [todayIso, hasDailyBlocks, dailyLoading, dailyError, handleGenerateDaily]);
+
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl bg-gradient-to-r from-primary-500 to-primary-600 p-5 text-white shadow-soft">
+      <section className="rounded-2xl border border-primary-200 bg-white p-5 text-primary-900 shadow-soft">
         {dailyError && (
           <div
             role="alert"
-            className="mb-4 rounded-xl border border-white/25 bg-black/35 px-3 py-2.5 text-sm text-white"
+            className="mb-4 rounded-xl border border-primary-200 bg-primary-50 px-3 py-2.5 text-sm text-primary-800"
           >
-            <p className="font-semibold text-rose-100">Something went wrong</p>
-            <p className="mt-1 text-[13px] leading-snug text-primary-50">{dailyError}</p>
+            <p className="font-semibold text-primary-900">Something went wrong</p>
+            <p className="mt-1 text-[13px] leading-snug text-primary-700">{dailyError}</p>
           </div>
         )}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-primary-100">
+            <p className="text-xs uppercase tracking-[0.2em] text-primary-600">
               Today&apos;s plan
             </p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-tight">{todayDayName}</h2>
-            <p className="mt-1 text-sm text-primary-50/95">{dateLong}</p>
-            <p className="mt-0.5 text-xs text-primary-100/80">{today}</p>
           </div>
           <div className="flex flex-col items-stretch gap-2 sm:items-end">
             <Button
               type="button"
               size="sm"
               variant="secondary"
-              className="border-white/40 bg-white/15 text-white hover:bg-white/25"
+              className="border-primary-300 bg-primary-50 text-primary-800 hover:bg-primary-100"
               onClick={handleGenerateDaily}
               isLoading={dailyLoading}
             >
@@ -714,16 +707,11 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ today, routine, isLight }
 
         {hasDailyBlocks && dailyPlan ? (
           <div className="mt-4 space-y-3">
-            {dailyPlan.analysis ? (
-              <p className="text-sm leading-relaxed text-primary-50">
-                {displayPlanAnalysis(dailyPlan.analysis)}
-              </p>
-            ) : null}
             <div
               className={`overflow-hidden rounded-lg border shadow-sm ${
                 isLight
-                  ? 'border-rose-200 bg-[#fff5f5] text-rose-950'
-                  : 'border-rose-800/60 bg-rose-950/40 text-rose-50'
+                  ? 'border-primary-200 bg-primary-50 text-primary-900'
+                  : 'border-primary-800/60 bg-primary-950/40 text-primary-50'
               }`}
             >
               <table className="w-full border-collapse text-sm">
@@ -731,14 +719,14 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ today, routine, isLight }
                   <tr
                     className={
                       isLight
-                        ? 'bg-[#fbc9c8] text-rose-950'
-                        : 'bg-rose-900/55 text-rose-100'
+                        ? 'bg-primary-100 text-primary-900'
+                        : 'bg-primary-900/55 text-primary-100'
                     }
                   >
                     <th
                       scope="col"
                       className={`border px-3 py-2.5 text-center text-xs font-bold uppercase tracking-wide ${
-                        isLight ? 'border-rose-300' : 'border-rose-800'
+                        isLight ? 'border-primary-300' : 'border-primary-800'
                       }`}
                     >
                       Time
@@ -746,7 +734,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ today, routine, isLight }
                     <th
                       scope="col"
                       className={`border px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide ${
-                        isLight ? 'border-rose-300' : 'border-rose-800'
+                        isLight ? 'border-primary-300' : 'border-primary-800'
                       }`}
                     >
                       Plan
@@ -766,20 +754,20 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ today, routine, isLight }
                               ? 'bg-[#fff8f8]'
                               : 'bg-white'
                             : index % 2 === 0
-                              ? 'bg-rose-950/25'
-                              : 'bg-rose-900/20'
+                              ? 'bg-primary-950/25'
+                              : 'bg-primary-900/20'
                         }
                       >
                         <td
                           className={`border px-2 py-2.5 text-center align-top text-xs font-medium tabular-nums ${
-                            isLight ? 'border-rose-200 text-rose-900' : 'border-rose-800/70 text-rose-100'
+                            isLight ? 'border-primary-200 text-primary-900' : 'border-primary-800/70 text-primary-100'
                           }`}
                         >
                           {formatTime12h(block.startTime)} – {formatTime12h(block.endTime)}
                         </td>
                         <td
                           className={`border px-3 py-2.5 align-top ${
-                            isLight ? 'border-rose-200 text-rose-900' : 'border-rose-800/70 text-rose-50'
+                            isLight ? 'border-primary-200 text-primary-900' : 'border-primary-800/70 text-primary-50'
                           }`}
                         >
                           <span className="font-medium">{block.title}</span>
@@ -794,24 +782,13 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({ today, routine, isLight }
                 </tbody>
               </table>
             </div>
-            {dailyPlan.tips.length > 0 ? (
-              <div className="rounded-xl bg-black/15 px-3 py-2 text-[11px] text-primary-50">
-                <p className="mb-1 font-semibold text-primary-100">Tips</p>
-                <ul className="list-inside list-disc space-y-0.5">
-                  {dailyPlan.tips.map((t) => (
-                    <li key={t}>{t}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
           </div>
         ) : (
-          <div className="mt-3 rounded-xl bg-white/10 px-3 py-3 text-sm text-primary-50">
-            <p className="font-medium text-white">No plan for today yet</p>
-            <p className="mt-1 text-[13px] leading-relaxed text-primary-100/95">
-              After you finish setup, we build today&apos;s schedule for you. You can also tap{' '}
-              <strong className="text-white">Get today&apos;s plan</strong> whenever you want a fresh
-              version.
+          <div className="mt-3 rounded-xl bg-primary-50 px-3 py-3 text-sm text-primary-700">
+            <p className="font-medium text-primary-900">No plan for today yet</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-primary-700">
+              We&apos;re creating your schedule automatically. You can still tap{' '}
+              <strong className="text-primary-900">Refresh today&apos;s plan</strong> anytime.
             </p>
           </div>
         )}
@@ -824,9 +801,6 @@ const TimeTrackerScreen: React.FC = () => {
   const [mode, setMode] = useState<TimerMode>('study');
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [selectedCourseId, setSelectedCourseId] = useState<string>(
-    defaultCourses[0]?.id ?? ''
-  );
   const [sessions, setSessions] = useState<TrackedSession[]>([]);
   const [activeTimer, setActiveTimer] = useState<{
     mode: TimerMode;
@@ -858,9 +832,6 @@ const TimeTrackerScreen: React.FC = () => {
         if (parsed && parsed.startedAt) {
           setActiveTimer(parsed);
           setMode(parsed.mode ?? 'study');
-          if (parsed.courseId) {
-            setSelectedCourseId(parsed.courseId);
-          }
           const diffSeconds = Math.max(
             0,
             Math.floor((Date.now() - Date.parse(parsed.startedAt)) / 1000)
@@ -899,13 +870,10 @@ const TimeTrackerScreen: React.FC = () => {
 
   const handleStart = () => {
     if (isRunning) return;
-    if (mode === 'study' && !selectedCourseId) {
-      return;
-    }
     const startedAt = new Date().toISOString();
     const timer = {
       mode,
-      courseId: mode === 'study' ? selectedCourseId : null,
+      courseId: null,
       startedAt,
     };
     setActiveTimer(timer);
@@ -954,18 +922,11 @@ const TimeTrackerScreen: React.FC = () => {
     }
   };
 
-  const getCourseForId = (courseId?: string) =>
-    defaultCourses.find((course) => course.id === courseId);
-
   const recentSessions = sessions.slice(0, 10);
 
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-primary-900">Time tracker</h2>
-      <p className="text-sm text-primary-600">
-        Track your focused study, sleep and scrolling with timers that keep
-        running even if you close the app.
-      </p>
 
       <div className="flex flex-wrap gap-2">
         {(['study', 'scroll', 'sleep'] as const).map((value) => (
@@ -976,7 +937,7 @@ const TimeTrackerScreen: React.FC = () => {
             disabled={isRunning}
             className={`rounded-full px-4 py-1.5 text-xs font-medium capitalize transition ${
               mode === value
-                ? 'bg-primary-600 text-white'
+                ? 'bg-primary-200 text-primary-800'
                 : 'bg-primary-100 text-primary-800 hover:bg-primary-200'
             } ${isRunning ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
@@ -992,27 +953,6 @@ const TimeTrackerScreen: React.FC = () => {
         <p className="mb-1 text-sm font-medium capitalize text-primary-900">
           {mode}
         </p>
-
-        {mode === 'study' && (
-          <div className="mb-3 flex flex-col items-center gap-1 text-xs text-primary-700">
-            <label htmlFor="time-tracker-course" className="font-medium">
-              Course
-            </label>
-            <select
-              id="time-tracker-course"
-              value={selectedCourseId}
-              onChange={(e) => setSelectedCourseId(e.target.value)}
-              disabled={isRunning}
-              className="rounded-lg border border-primary-200 bg-primary-50 px-2 py-1 text-xs text-primary-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 disabled:opacity-60"
-            >
-              {defaultCourses.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.code} — {course.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
 
         <p className="mb-4 text-4xl font-mono tabular-nums text-primary-900">
           {formatTime(elapsedSeconds)}
@@ -1051,14 +991,10 @@ const TimeTrackerScreen: React.FC = () => {
           )}
         </div>
         {sessions.length === 0 ? (
-          <p className="text-xs text-primary-500">
-            No sessions yet. Start a timer above to log your first study, sleep
-            or scroll session.
-          </p>
+          <p className="text-xs text-primary-500">No session yet.</p>
         ) : (
           <ul className="divide-y divide-primary-100 text-xs">
             {recentSessions.map((session) => {
-              const course = getCourseForId(session.courseId);
               const started = new Date(session.startedAt);
               const labelDate = started.toLocaleDateString(undefined, {
                 weekday: 'short',
@@ -1077,9 +1013,6 @@ const TimeTrackerScreen: React.FC = () => {
                   <div className="flex flex-col">
                     <span className="font-medium capitalize text-primary-900">
                       {session.mode}
-                      {session.mode === 'study' && course
-                        ? ` • ${course.code}`
-                        : ''}
                     </span>
                     <span className="text-[11px] text-primary-500">
                       {labelDate} at {labelTime}
@@ -1089,11 +1022,6 @@ const TimeTrackerScreen: React.FC = () => {
                     <span className="font-mono text-xs text-primary-900">
                       {formatTime(session.durationSeconds)}
                     </span>
-                    {session.mode === 'study' && course && (
-                      <p className="text-[11px] text-primary-500">
-                        {course.name}
-                      </p>
-                    )}
                   </div>
                 </li>
               );
@@ -1166,13 +1094,13 @@ const WeeklyReportScreen: React.FC = () => {
       key: 'sleep' as const,
       label: 'Sleep hours',
       value: toHours(totalByMode.sleep),
-      color: 'bg-sky-500',
+      color: 'bg-primary-500',
     },
     {
       key: 'scroll' as const,
       label: 'Scroll hours',
       value: toHours(totalByMode.scroll),
-      color: 'bg-rose-500',
+      color: 'bg-primary-400',
     },
   ];
 
@@ -1195,10 +1123,6 @@ const WeeklyReportScreen: React.FC = () => {
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-primary-900">Weekly report</h2>
-      <p className="text-sm text-primary-600">
-        See how much time you&apos;ve spent studying, sleeping and scrolling for
-        any week, based on your time tracker history.
-      </p>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-200 bg-white p-3 text-xs shadow-sm">
         <div className="flex items-center gap-2">
@@ -1235,15 +1159,6 @@ const WeeklyReportScreen: React.FC = () => {
       {weekNotYetComplete ? (
         <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/40 p-4 text-xs text-primary-600">
           <p className="font-medium text-primary-800">No report yet</p>
-          <p className="mt-1">
-            Weekly reports are available after the week has finished (after{' '}
-            {end.toLocaleDateString(undefined, {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-            })}
-            ). Check back then.
-          </p>
         </div>
       ) : sessionsInWeek.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-primary-200 bg-primary-50/40 p-4 text-xs text-primary-600">
@@ -1450,9 +1365,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
       <section className="space-y-3 rounded-2xl border border-primary-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-medium text-primary-900">Routine summary</h3>
-        <p className="text-xs text-primary-600">
-          Quickly review or update your current routine.
-        </p>
         <ul className="mt-2 space-y-1 text-sm text-primary-800">
           <li>Wake: {routine.wakeTime || 'Not set'}</li>
           <li>Sleep: {routine.sleepTime || 'Not set'}</li>
@@ -1490,10 +1402,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
       <section className="space-y-3 rounded-2xl border border-primary-200 bg-white p-4 shadow-sm">
         <h3 className="text-sm font-medium text-primary-900">Change goals</h3>
-        <p className="text-xs text-primary-600">
-          Describe what you want this week. You can later wire this into real
-          AI planning.
-        </p>
         <textarea
           value={goals}
           onChange={(e) => setGoals(e.target.value)}
@@ -1506,36 +1414,26 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <h3 className="text-sm font-medium text-primary-900">Appearance</h3>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-primary-900">Dark mode</p>
-            <p className="text-xs text-primary-600">
-              Switch between light and dark themes.
-            </p>
+            <p className="text-sm text-primary-900">Theme</p>
+            <p className="text-xs text-primary-600">White + emerald contrast</p>
           </div>
           <button
             type="button"
             onClick={onToggleTheme}
-            className={`flex h-7 w-12 items-center rounded-full border border-primary-300 px-1 transition ${
-              theme === 'dark' ? 'bg-primary-600' : 'bg-primary-200'
-            }`}
+            disabled
+            className="flex h-7 w-12 items-center rounded-full border border-primary-300 bg-primary-200 px-1 transition disabled:cursor-not-allowed"
           >
-            <span
-              className={`h-5 w-5 rounded-full bg-white shadow-sm transition ${
-                theme === 'dark' ? 'translate-x-5' : ''
-              }`}
-            />
+            <span className="h-5 w-5 rounded-full bg-white shadow-sm transition" />
           </button>
         </div>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/50 p-4 shadow-sm">
-        <h3 className="text-sm font-medium text-rose-900">Danger Zone</h3>
-        <p className="text-xs text-rose-600">
-          Removes your account and data stored in this browser on this device. This cannot be undone.
-        </p>
+      <section className="space-y-3 rounded-2xl border border-primary-200 bg-white p-4 shadow-sm">
+        <h3 className="text-sm font-medium text-primary-900">Danger Zone</h3>
         <button
           type="button"
           onClick={() => setShowDeleteModal(true)}
-          className="mt-2 inline-flex items-center rounded-full border border-rose-400 bg-rose-100 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2"
+          className="mt-2 inline-flex items-center rounded-full border border-primary-400 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
         >
           Delete Account
         </button>
@@ -1547,24 +1445,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <h3 className="mb-2 text-lg font-semibold text-primary-900">
               Delete Account?
             </h3>
-            <p className="mb-4 text-sm text-primary-600">
-              This will remove your account from this browser&apos;s storage, including:
-            </p>
-            <ul className="mb-4 space-y-1 text-sm text-primary-700">
-              <li className="flex items-start gap-2">
-                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-rose-500" />
-                <span>Your saved email login and routine</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-rose-500" />
-                <span>Weekly plans and reports stored here</span>
-              </li>
-            </ul>
-            <p className="mb-6 text-sm font-medium text-rose-600">
+            <p className="mb-6 text-sm font-medium text-primary-700">
               This action cannot be undone.
             </p>
             {deleteError && (
-              <p className="mb-3 text-xs font-medium text-rose-600">{deleteError}</p>
+              <p className="mb-3 text-xs font-medium text-primary-700">{deleteError}</p>
             )}
             <div className="flex gap-3">
               <button
@@ -1582,7 +1467,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 type="button"
                 onClick={handleDeleteAccount}
                 disabled={isDeleting}
-                className="flex-1 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 disabled:opacity-50"
+                className="flex-1 rounded-lg border border-primary-400 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-800 hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50"
               >
                 {isDeleting ? 'Deleting...' : 'Delete Account'}
               </button>

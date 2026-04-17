@@ -109,7 +109,7 @@ const LoginPage: React.FC = () => {
             onChange={(e) => setPassword(e.target.value)}
           />
           {error && (
-            <p className="text-xs font-medium text-rose-600">{error}</p>
+            <p className="text-xs font-medium text-primary-700">{error}</p>
           )}
           <Button type="submit" fullWidth isLoading={isSubmitting}>
             Sign in

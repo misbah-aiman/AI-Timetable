@@ -6,7 +6,6 @@ export type ServerHealth = {
   mongoConnected?: boolean;
 };
 
-/** GET /api/health — returns null if the API process is not reachable (e.g. server not running). */
 export async function fetchServerHealth(): Promise<ServerHealth | null> {
   const base = getApiBaseUrl();
   const url = `${base}/api/health`;

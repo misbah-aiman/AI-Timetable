@@ -125,7 +125,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ initial, onComplete }) =
           </div>
         </div>
         {saveError && (
-          <p className="mb-3 text-xs font-medium text-rose-600">{saveError}</p>
+          <p className="mb-3 text-xs font-medium text-primary-700">{saveError}</p>
         )}
         <div className="mt-4 flex justify-between gap-3">
           <button
@@ -140,7 +140,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ initial, onComplete }) =
             type="button"
             onClick={handleNext}
             disabled={isSaving}
-            className="flex-1 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50"
+            className="flex-1 rounded-lg border border-primary-400 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-800 hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50"
           >
             {isSaving
               ? 'Saving…'

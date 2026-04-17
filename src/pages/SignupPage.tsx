@@ -107,7 +107,7 @@ export const SignupPage: React.FC = () => {
             onChange={(e) => setConfirmPassword(e.target.value)}
           />
           {error && (
-            <p className="text-xs font-medium text-rose-600">{error}</p>
+            <p className="text-xs font-medium text-primary-700">{error}</p>
           )}
           <Button
             type="submit"

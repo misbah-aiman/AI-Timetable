@@ -16,11 +16,11 @@ const baseClasses =
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-primary-600 text-white shadow-soft hover:bg-primary-700 focus-visible:ring-primary-500',
+    'border border-primary-600 bg-white text-primary-800 shadow-soft hover:bg-primary-100 focus-visible:ring-primary-500',
   secondary:
-    'bg-primary-100 text-primary-800 shadow-sm hover:bg-primary-200 focus-visible:ring-primary-300',
+    'border border-primary-300 bg-primary-50 text-primary-800 shadow-sm hover:bg-primary-100 focus-visible:ring-primary-300',
   danger:
-    'bg-rose-500 text-white shadow-md shadow-rose-500/30 hover:bg-rose-600 focus-visible:ring-rose-500',
+    'border border-primary-600 bg-white text-primary-800 shadow-sm hover:bg-primary-100 focus-visible:ring-primary-500',
   ghost:
     'bg-transparent text-primary-700 hover:bg-primary-100 focus-visible:ring-primary-200',
 };
@@ -50,7 +50,7 @@ export const Button: React.FC<ButtonProps> = ({
       {...props}
     >
       {isLoading && (
-        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-200 border-t-primary-700" />
       )}
       <span className="truncate">{children}</span>
     </button>

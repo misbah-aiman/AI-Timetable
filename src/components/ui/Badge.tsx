@@ -7,9 +7,9 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const priorityStyles: Record<Priority, string> = {
-  high: 'bg-rose-100 text-rose-700 ring-rose-200',
-  medium: 'bg-amber-100 text-amber-700 ring-amber-200',
-  low: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+  high: 'bg-primary-100 text-primary-800 ring-primary-200',
+  medium: 'bg-primary-100 text-primary-800 ring-primary-200',
+  low: 'bg-primary-100 text-primary-800 ring-primary-200',
 };
 
 export const Badge: React.FC<BadgeProps> = ({

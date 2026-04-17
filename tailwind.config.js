@@ -5,29 +5,29 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Light blue theme – sky palette for good contrast and readability
+        // White + emerald theme
         primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
+          50: '#ffffff',
+          100: '#ecfdf5',
+          200: '#d1fae5',
+          300: '#a7f3d0',
+          400: '#6ee7b7',
+          500: '#34d399',
+          600: '#10b981',
+          700: '#059669',
+          800: '#047857',
+          900: '#065f46',
         },
         // App surface colors for cards and panels
         surface: {
           DEFAULT: '#ffffff',
-          muted: '#f0f9ff',
-          elevated: '#e0f2fe',
+          muted: '#ffffff',
+          elevated: '#ffffff',
         },
       },
       boxShadow: {
-        'soft': '0 2px 15px -3px rgba(2, 132, 199, 0.08), 0 10px 20px -2px rgba(2, 132, 199, 0.04)',
-        'glow': '0 0 20px -5px rgba(2, 132, 199, 0.25)',
+        'soft': '0 2px 15px -3px rgba(5, 150, 105, 0.08), 0 10px 20px -2px rgba(5, 150, 105, 0.04)',
+        'glow': '0 0 20px -5px rgba(5, 150, 105, 0.25)',
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',

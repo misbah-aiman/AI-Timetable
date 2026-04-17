@@ -51,7 +51,7 @@ export const Input: React.FC<InputProps> = ({
       {error && (
         <p
           id={id ? `${id}-error` : undefined}
-          className="text-[11px] font-medium text-rose-500"
+          className="text-[11px] font-medium text-primary-700"
         >
           {error}
         </p>
