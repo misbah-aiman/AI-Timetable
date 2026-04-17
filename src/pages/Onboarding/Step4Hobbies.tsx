@@ -11,9 +11,6 @@ export const Step4Hobbies: React.FC<StepProps> = ({ answers, onUpdate, onNext, o
         <p className="mb-3 text-base font-medium text-primary-900">
           Hobbies time (if any)
         </p>
-        <p className="mb-3 text-sm text-primary-600/80">
-          Optional. e.g. &quot;1 hour for guitar&quot; or leave blank.
-        </p>
         <input
           type="text"
           value={answers.hobbiesTime}
@@ -27,9 +24,6 @@ export const Step4Hobbies: React.FC<StepProps> = ({ answers, onUpdate, onNext, o
       <div>
         <p className="mb-3 text-base font-medium text-primary-900">
           Free time (if any)
-        </p>
-        <p className="mb-3 text-sm text-primary-600/80">
-          Optional. Describe any free time you want to allocate, e.g. &quot;2 hours for relaxation&quot;.
         </p>
         <input
           ref={freeRef}

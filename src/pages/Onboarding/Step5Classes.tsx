@@ -19,9 +19,6 @@ export const Step5Classes: React.FC<StepProps> = ({ answers, onUpdate, onNext, o
       <p className="mb-3 text-base font-medium text-primary-900">
         Share your classes schedule
       </p>
-      <p className="mb-3 text-sm text-primary-600/80">
-        You can upload a screenshot or photo of your timetable.
-      </p>
       <label className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/50 px-4 py-8 transition hover:border-primary-400 hover:bg-primary-100/50">
         <input
           type="file"
@@ -45,7 +42,7 @@ export const Step5Classes: React.FC<StepProps> = ({ answers, onUpdate, onNext, o
               className="mx-auto max-h-40 rounded-lg object-contain"
             />
             <span className="text-sm font-medium text-primary-600">
-              Image added. Click to change.
+              Image added
             </span>
           </div>
         ) : (

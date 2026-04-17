@@ -29,9 +29,6 @@ export const Step6Review: React.FC<Step6ReviewProps> = ({
       <p className="mb-4 text-base font-medium text-primary-900">
         Review your routine
       </p>
-      <p className="mb-4 text-sm text-primary-600/80">
-        Here&apos;s everything you&apos;ve entered. Review and click &quot;Generate my timetable&quot; to continue.
-      </p>
       <div className="space-y-3 rounded-xl border border-primary-200 bg-primary-50/30 p-4">
         {/* Sleep Schedule */}
         <div className="flex items-start justify-between border-b border-primary-200 pb-2">

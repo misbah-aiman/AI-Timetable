@@ -8,9 +8,6 @@ export const Step3Study: React.FC<StepProps> = ({ answers, onUpdate, onNext, onB
       <p className="mb-3 text-base font-medium text-primary-900">
         How many hours do you want to study per day?
       </p>
-      <p className="mb-3 text-sm text-primary-600/80">
-        A rough estimate is enough.
-      </p>
       <input
         type="number"
         min="0"

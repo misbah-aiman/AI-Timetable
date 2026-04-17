@@ -11,9 +11,6 @@ export const Step1Sleep: React.FC<StepProps> = ({ answers, onUpdate, onNext, onB
       <p className="text-base font-medium text-primary-900">
         When do you usually sleep and wake up?
       </p>
-      <p className="text-sm text-primary-600/80">
-        We&apos;ll use this to plan study blocks around your rest.
-      </p>
       <div>
         <label className="mb-1 block text-xs font-medium text-primary-700">
           Bedtime
