@@ -63,6 +63,7 @@ const STORAGE_KEY_SESSIONS = 'ai-timetable:sessions';
 const STORAGE_KEY_ACTIVE_TIMER = 'ai-timetable:active-timer';
 const STORAGE_KEY_REMINDERS = 'ai-timetable:reminders';
 const STORAGE_KEY_DAILY_PLAN = 'ai-timetable:daily-ai-plan';
+const STORAGE_KEY_THEME = 'ai-timetable:theme';
 
 type StoredDailyPlan = {
   plan: GeneratedDailyPlan;
@@ -148,7 +149,10 @@ function routineToPayload(routine: RoutineAnswers) {
 
 const AppShell: React.FC = () => {
   const { isAuthenticated, logout, user } = useAuth();
-  const [theme, setTheme] = useState<Theme>('light');
+  const [theme, setTheme] = useState<Theme>(() => {
+    const storedTheme = localStorage.getItem(STORAGE_KEY_THEME);
+    return storedTheme === 'dark' ? 'dark' : 'light';
+  });
   const [routine, setRoutine] = useState<RoutineAnswers>(defaultRoutine);
   const previousUserIdRef = useRef<string | undefined>(undefined);
 
@@ -200,14 +204,18 @@ const AppShell: React.FC = () => {
   };
 
   const toggleTheme = () => {
-    setTheme('light');
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_THEME, theme);
+  }, [theme]);
 
   const appClasses = useMemo(
     () =>
       theme === 'light'
         ? 'min-h-screen bg-white text-primary-900'
-        : 'min-h-screen bg-white text-primary-900',
+        : 'min-h-screen bg-slate-950 text-slate-100',
     [theme]
   );
 
@@ -364,7 +372,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const isLight = theme === 'light';
   return (
     <div className={`flex min-h-screen flex-col ${isLight ? 'bg-primary-50 text-primary-900' : 'bg-slate-950 text-slate-50'}`}>
-      <header className={`flex items-center justify-between border-b px-4 py-3 sm:px-6 ${isLight ? 'border-primary-200 bg-white/90' : 'border-slate-800 bg-slate-950/90'}`}>
+      <header className={`flex items-center justify-between border-b px-4 py-3 sm:px-6 ${isLight ? 'border-primary-200 bg-white/90' : 'border-emerald-900/40 bg-slate-950/90'}`}>
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -373,7 +381,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             className={`flex h-9 w-9 items-center justify-center rounded-full border text-xs transition ${
               isLight
                 ? 'border-primary-200 bg-white text-primary-800 hover:bg-primary-50'
-                : 'border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800'
+                : 'border-emerald-800/60 bg-slate-900 text-emerald-100 hover:bg-slate-800'
             }`}
             aria-label="Open menu"
           >
@@ -400,7 +408,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               className={`flex h-9 w-9 items-center justify-center rounded-full border text-xs font-semibold uppercase ${
                 isLight
                   ? 'border-primary-300 bg-primary-50 text-primary-800'
-                  : 'border-slate-700 bg-slate-900 text-slate-100'
+                  : 'border-emerald-800/60 bg-slate-900 text-emerald-100'
               }`}
             >
               {(user?.name || user?.email || '?')
@@ -411,15 +419,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </button>
             {profileOpen && (
               <div className={`absolute right-0 z-30 mt-2 w-56 rounded-2xl border p-3 text-xs shadow-soft ${
-                isLight ? 'border-primary-200 bg-white' : 'border-slate-800 bg-slate-900'
+                isLight ? 'border-primary-200 bg-white' : 'border-emerald-900/40 bg-slate-900'
               }`}>
-                <p className="text-[11px] uppercase tracking-[0.2em] text-primary-500">
+                <p className={`text-[11px] uppercase tracking-[0.2em] ${isLight ? 'text-primary-500' : 'text-emerald-300'}`}>
                   Profile
                 </p>
-                <p className="mt-1 text-sm font-medium text-primary-900">
+                <p className={`mt-1 text-sm font-medium ${isLight ? 'text-primary-900' : 'text-slate-100'}`}>
                   {user?.name || 'Student'}
                 </p>
-                <p className="truncate text-[11px] text-primary-600">
+                <p className={`truncate text-[11px] ${isLight ? 'text-primary-600' : 'text-slate-300'}`}>
                   {user?.email}
                 </p>
                 <button
@@ -429,7 +437,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                     onLogout();
                     navigate('/');
                   }}
-                  className="mt-3 w-full rounded-full border border-primary-400 px-3 py-1.5 text-[11px] font-medium text-primary-700 hover:bg-primary-100"
+                  className={`mt-3 w-full rounded-full border px-3 py-1.5 text-[11px] font-medium ${
+                    isLight
+                      ? 'border-emerald-700 bg-emerald-600 text-white hover:bg-emerald-700'
+                      : 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-500'
+                  }`}
                 >
                   Log out
                 </button>
@@ -449,7 +461,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <nav
             className={`fixed left-0 top-[57px] bottom-0 z-20 w-52 border-r px-4 py-3 text-sm transition-transform duration-300 ${
               sidebarHovered ? 'translate-x-0' : '-translate-x-full'
-            } ${isLight ? 'border-primary-200 bg-white/95 backdrop-blur-sm' : 'border-slate-800 bg-slate-950/95 backdrop-blur-sm'}`}
+            } ${isLight ? 'border-primary-200 bg-white/95 backdrop-blur-sm' : 'border-emerald-900/40 bg-slate-950/95 backdrop-blur-sm'}`}
           >
             <ul className="flex flex-col gap-1">
               {menuItems.map((item) => {
@@ -464,10 +476,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       }}
                       className={`w-full whitespace-nowrap rounded-full px-4 py-2 text-left text-xs font-medium transition ${
                         active
-                          ? 'bg-primary-200 text-primary-800'
+                          ? isLight
+                            ? 'bg-emerald-100 text-emerald-900'
+                            : 'bg-emerald-700/60 text-emerald-50'
                           : isLight
                             ? 'bg-primary-100 text-primary-800 hover:bg-primary-200'
-                            : 'bg-slate-900 text-slate-200 hover:bg-slate-800'
+                            : 'bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-emerald-200'
                       }`}
                     >
                       {item.label}
@@ -513,10 +527,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <div className="fixed inset-0 z-40 flex md:hidden">
           <div
             className={`h-full w-64 max-w-[80%] border-r bg-white p-4 shadow-xl transition ${
-              isLight ? 'border-primary-200 bg-white' : 'border-slate-800 bg-slate-950'
+              isLight ? 'border-primary-200 bg-white' : 'border-emerald-900/40 bg-slate-950'
             }`}
           >
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary-500">
+            <p className={`mb-3 text-xs font-semibold uppercase tracking-[0.2em] ${isLight ? 'text-primary-500' : 'text-emerald-300'}`}>
               Menu
             </p>
             <ul className="space-y-1 text-sm">
@@ -532,10 +546,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       }}
                       className={`w-full rounded-full px-4 py-2 text-left text-xs font-medium transition ${
                         active
-                          ? 'bg-primary-200 text-primary-800'
+                          ? isLight
+                            ? 'bg-emerald-100 text-emerald-900'
+                            : 'bg-emerald-700/60 text-emerald-50'
                           : isLight
                             ? 'bg-primary-100 text-primary-800 hover:bg-primary-200'
-                            : 'bg-slate-900 text-slate-200 hover:bg-slate-800'
+                            : 'bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-emerald-200'
                       }`}
                     >
                       {item.label}
@@ -1365,6 +1381,10 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onToggleTheme,
   routine,
 }) => {
+  const isLight = theme === 'light';
+  const settingsCardClasses = `space-y-3 rounded-2xl border p-4 shadow-sm ${
+    isLight ? 'border-primary-200 bg-white' : 'border-emerald-900/40 bg-slate-900'
+  }`;
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -1390,11 +1410,15 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-primary-900">Settings</h2>
+      <h2 className={`text-lg font-semibold ${isLight ? 'text-primary-900' : 'text-slate-100'}`}>
+        Settings
+      </h2>
 
-      <section className="space-y-3 rounded-2xl border border-primary-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-medium text-primary-900">Routine summary</h3>
-        <ul className="mt-2 space-y-1 text-sm text-primary-800">
+      <section className={settingsCardClasses}>
+        <h3 className={`text-sm font-medium ${isLight ? 'text-primary-900' : 'text-slate-100'}`}>
+          Routine summary
+        </h3>
+        <ul className={`mt-2 space-y-1 text-sm ${isLight ? 'text-primary-800' : 'text-slate-200'}`}>
           <li>Wake: {routine.wakeTime || 'Not set'}</li>
           <li>Sleep: {routine.sleepTime || 'Not set'}</li>
           <li>Sleep hours: {routine.sleepHours ? `${routine.sleepHours} hrs` : 'Not set'}</li>
@@ -1429,26 +1453,40 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </button>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-primary-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-medium text-primary-900">Appearance</h3>
+      <section className={settingsCardClasses}>
+        <h3 className={`text-sm font-medium ${isLight ? 'text-primary-900' : 'text-slate-100'}`}>
+          Appearance
+        </h3>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-primary-900">Theme</p>
-            <p className="text-xs text-primary-600">White + emerald contrast</p>
+            <p className={`text-sm ${isLight ? 'text-primary-900' : 'text-slate-100'}`}>Theme</p>
+            <p className={`text-xs ${isLight ? 'text-primary-600' : 'text-slate-300'}`}>
+              {isLight ? 'Light mode (white + emerald)' : 'Dark mode (emerald on slate)'}
+            </p>
           </div>
           <button
             type="button"
             onClick={onToggleTheme}
-            disabled
-            className="flex h-7 w-12 items-center rounded-full border border-primary-300 bg-primary-200 px-1 transition disabled:cursor-not-allowed"
+            className={`flex h-7 w-12 items-center rounded-full border px-1 transition ${
+              isLight
+                ? 'border-emerald-700 bg-emerald-600'
+                : 'border-emerald-500 bg-slate-800'
+            }`}
+            aria-label={`Switch to ${isLight ? 'dark' : 'light'} theme`}
           >
-            <span className="h-5 w-5 rounded-full bg-white shadow-sm transition" />
+            <span
+              className={`h-5 w-5 rounded-full bg-white shadow-sm transition ${
+                isLight ? 'translate-x-0' : 'translate-x-5'
+              }`}
+            />
           </button>
         </div>
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-primary-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-medium text-primary-900">Danger Zone</h3>
+      <section className={settingsCardClasses}>
+        <h3 className={`text-sm font-medium ${isLight ? 'text-primary-900' : 'text-slate-100'}`}>
+          Danger Zone
+        </h3>
         <button
           type="button"
           onClick={() => setShowDeleteModal(true)}
@@ -1460,15 +1498,21 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="mb-2 text-lg font-semibold text-primary-900">
+          <div
+            className={`w-full max-w-md rounded-2xl p-6 shadow-xl ${
+              isLight ? 'bg-white' : 'border border-emerald-900/40 bg-slate-900'
+            }`}
+          >
+            <h3 className={`mb-2 text-lg font-semibold ${isLight ? 'text-primary-900' : 'text-slate-100'}`}>
               Delete Account?
             </h3>
-            <p className="mb-6 text-sm font-medium text-primary-700">
+            <p className={`mb-6 text-sm font-medium ${isLight ? 'text-primary-700' : 'text-slate-300'}`}>
               This action cannot be undone.
             </p>
             {deleteError && (
-              <p className="mb-3 text-xs font-medium text-primary-700">{deleteError}</p>
+              <p className={`mb-3 text-xs font-medium ${isLight ? 'text-primary-700' : 'text-emerald-300'}`}>
+                {deleteError}
+              </p>
             )}
             <div className="flex gap-3">
               <button
