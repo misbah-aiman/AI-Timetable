@@ -1370,9 +1370,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
 }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [goals, setGoals] = useState(
-    'Stay consistent with study, protect sleep, and reduce doom‑scrolling.'
-  );
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -1429,20 +1426,10 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
               state: { fromSignup: true },
             })
           }
-          className="mt-3 inline-flex items-center rounded-full border border-primary-300 px-3 py-1.5 text-xs font-medium text-primary-800 hover:bg-primary-50"
+          className="mt-3 inline-flex items-center rounded-full border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
         >
           Edit routine
         </button>
-      </section>
-
-      <section className="space-y-3 rounded-2xl border border-primary-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-medium text-primary-900">Change goals</h3>
-        <textarea
-          value={goals}
-          onChange={(e) => setGoals(e.target.value)}
-          rows={3}
-          className="mt-1 w-full resize-none rounded-lg border border-primary-200 bg-primary-50/50 px-3 py-2 text-sm text-primary-900 outline-none placeholder:text-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200"
-        />
       </section>
 
       <section className="space-y-3 rounded-2xl border border-primary-200 bg-white p-4 shadow-sm">
@@ -1468,7 +1455,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <button
           type="button"
           onClick={() => setShowDeleteModal(true)}
-          className="mt-2 inline-flex items-center rounded-full border border-primary-400 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+          className="mt-2 inline-flex items-center rounded-full border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
         >
           Delete Account
         </button>
@@ -1494,7 +1481,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   setDeleteError(null);
                 }}
                 disabled={isDeleting}
-                className="flex-1 rounded-lg border border-primary-300 px-4 py-2 text-sm font-medium text-primary-800 hover:bg-primary-50 disabled:opacity-50"
+                className="flex-1 rounded-lg border border-emerald-700 bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1502,7 +1489,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 type="button"
                 onClick={handleDeleteAccount}
                 disabled={isDeleting}
-                className="flex-1 rounded-lg border border-primary-400 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-800 hover:bg-primary-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50"
+                className="flex-1 rounded-lg border border-emerald-700 bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50"
               >
                 {isDeleting ? 'Deleting...' : 'Delete Account'}
               </button>
