@@ -384,9 +384,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </span>
           </button>
           <div>
-            <p className={`text-[11px] uppercase tracking-[0.2em] ${isLight ? 'text-primary-500' : 'text-slate-400'}`}>
-              Home
-            </p>
             <h1 className={`text-base font-semibold sm:text-lg ${isLight ? 'text-primary-900' : 'text-slate-50'}`}>
               Hi, {user?.name || user?.email || 'there'}
             </h1>
@@ -514,13 +511,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
       {menuOpen && (
         <div className="fixed inset-0 z-40 flex md:hidden">
-          <button
-            type="button"
-            className="h-full flex-1 bg-black/20"
-            onClick={() => setMenuOpen(false)}
-          />
           <div
-            className={`h-full w-64 max-w-[80%] border-l bg-white p-4 shadow-xl transition ${
+            className={`h-full w-64 max-w-[80%] border-r bg-white p-4 shadow-xl transition ${
               isLight ? 'border-primary-200 bg-white' : 'border-slate-800 bg-slate-950'
             }`}
           >
@@ -553,6 +545,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               })}
             </ul>
           </div>
+          <button
+            type="button"
+            className="h-full flex-1 bg-black/20"
+            onClick={() => setMenuOpen(false)}
+          />
         </div>
       )}
     </div>
