@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import { loginLocal, signupLocal } from '../../services/localAuthStorage';
+import { loginWithDatabase, signupWithDatabase } from '../../services/authService';
 
 type AuthUser = {
   id: string;
@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const u = await loginLocal(email, password);
+      const u = await loginWithDatabase(email, password);
       persistUser({
         id: u.id,
         email: u.email,
@@ -78,7 +78,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signup = useCallback(
     async (email: string, password: string, name?: string) => {
-      const u = await signupLocal(email, password, name);
+      const u = await signupWithDatabase(email, password, name);
       persistUser({
         id: u.id,
         email: u.email,
